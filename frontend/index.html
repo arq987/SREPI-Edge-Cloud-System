@@ -1,0 +1,26 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>SREPI - Punto Express Híbrido</title>
+    <!-- Importamos nuestro CSS -->
+    <link rel="stylesheet" href="css/style.css">
+    <!-- Importamos la librería para leer QR -->
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+
+    <div class="contenedor">
+        <h2>Punto Express SREPI</h2>
+        <span id="badge-estado" class="badge-edge badge-online">🟢 CONECTADO (ONLINE)</span>
+        <p class="descripcion">Acerca el Código QR a la cámara para procesar el retiro.</p>
+        
+        <div id="reader"></div>
+        <div id="resultado"></div>
+    </div>
+
+    <!-- Importamos nuestra lógica JS (defer asegura que el HTML cargue primero) -->
+    <script src="js/app.js" defer></script>
+</body>
+</html>

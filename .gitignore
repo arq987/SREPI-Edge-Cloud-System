@@ -1,0 +1,14 @@
+# Entornos virtuales de Python
+venv/
+env/
+
+# Caché compilada de Python
+__pycache__/
+*.pyc
+
+# 🛑 SEGURIDAD CRÍTICA: Variables de entorno y credenciales
+.env
+
+# Archivos del sistema operativo
+.DS_Store
+Thumbs.db

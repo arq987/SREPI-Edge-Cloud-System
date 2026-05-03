@@ -1,0 +1,73 @@
+body { 
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+    text-align: center; 
+    background-color: #f0f2f5; 
+    margin: 0; 
+    padding: 20px; 
+}
+
+.contenedor { 
+    max-width: 500px; 
+    margin: 0 auto; 
+    background: white; 
+    padding: 20px; 
+    border-radius: 12px; 
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1); 
+}
+
+h2 { 
+    color: #333; 
+    margin-top: 0; 
+}
+
+.descripcion {
+    color: #666; 
+    font-size: 14px;
+}
+
+/* Estilos de la etiqueta de red */
+.badge-edge { 
+    display: inline-block; 
+    color: white; 
+    padding: 5px 10px; 
+    border-radius: 20px; 
+    font-size: 12px; 
+    font-weight: bold; 
+    margin-bottom: 15px; 
+}
+.badge-online { background-color: #28a745; }
+.badge-offline { background-color: #dc3545; }
+
+/* Contenedores del escáner y resultados */
+#reader { 
+    width: 100%; 
+    border-radius: 8px; 
+    overflow: hidden; 
+}
+
+#resultado { 
+    margin-top: 20px; 
+    padding: 15px; 
+    border-radius: 8px; 
+    display: none; 
+    text-align: left;
+}
+
+/* Estados de respuesta */
+.success { background-color: #e8f5e9; border: 2px solid #28a745; }
+.warning { background-color: #fff3cd; border: 2px solid #ffeeba; }
+.error { background-color: #ffebee; border: 2px solid #dc3545; }
+
+.datos p { margin: 5px 0; font-size: 15px; }
+
+.btn-recargar { 
+    background-color: #007bff; 
+    color: white; 
+    border: none; 
+    padding: 10px 20px; 
+    border-radius: 5px; 
+    cursor: pointer; 
+    margin-top: 15px; 
+    width: 100%; 
+    font-weight: bold;
+}
