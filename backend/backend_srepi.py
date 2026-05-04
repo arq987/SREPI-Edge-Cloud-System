@@ -2,7 +2,10 @@ from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
-import pyodbc
+try:
+    import pymssql
+except ImportError:
+    pymssql = None
 import jwt
 from datetime import datetime, timedelta
 import os
@@ -23,24 +26,25 @@ app.add_middleware(
 )
 
 # 2. Obtener las credenciales de forma segura
-SECRET_KEY = os.getenv("SECRET_KEY_JWT")
-DB_SERVER = os.getenv("DB_SERVER")
-DB_NAME = os.getenv("DB_NAME")
-DB_USER = os.getenv("DB_USER")
-DB_PASSWORD = os.getenv("DB_PASSWORD")
 
-# 3. Construir la cadena de conexión
-CADENA_CONEXION = (
-    "Driver={ODBC Driver 17 for SQL Server};"
-    f"Server={DB_SERVER};"
-    f"Database={DB_NAME};"
-    f"UID={DB_USER};"
-    f"PWD={DB_PASSWORD};"
-)
+DB_SERVER = os.getenv("DB_SERVER") 
+DB_USER = os.getenv("DB_USER")     
+DB_PASSWORD = os.getenv("DB_PASSWORD")
+DB_NAME = os.getenv("DB_NAME")     
 
 def obtener_conexion():
-    """Establece la conexión con SQL Server usando credenciales ocultas"""
-    return pyodbc.connect(CADENA_CONEXION)
+    try:
+        # pymssql se conecta de forma nativa sin necesitar drivers externos
+        conn = pymssql.connect(
+            server=DB_SERVER,
+            user=DB_USER,
+            password=DB_PASSWORD,
+            database=DB_NAME
+        )
+        return conn
+    except Exception as e:
+        print(f"❌ Error conectando a Azure SQL: {e}")
+        return None
 
 # --- CONFIGURACIÓN DE META (WHATSAPP) ---
 VERIFY_TOKEN = os.getenv("VERIFY_TOKEN_META")
