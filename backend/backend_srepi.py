@@ -2,10 +2,7 @@ from fastapi import FastAPI, HTTPException, Request, Query
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import requests
-try:
-    import pymssql
-except ImportError:
-    pymssql = None
+import pymssql
 import jwt
 from datetime import datetime, timedelta
 import os
