@@ -4,3 +4,4 @@ requests>=2.31.0
 pyodbc>=4.0.39
 PyJWT>=2.8.0
 pydantic>=2.4.0
+python-dotenv>=1.0.0
