@@ -263,7 +263,7 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
             SELECT P.Nombre, P.Precio_Base, DATEDIFF(hour, GETUTCDATE(), L.Fecha_Vencimiento)
             FROM Inventario_Lotes L
             INNER JOIN Productos P ON L.SKU = P.SKU
-            WHERE L.ID_Lote = ? AND L.Cantidad_Disponible > 0
+            WHERE L.ID_Lote = %s AND L.Cantidad_Disponible > 0
         """, id_lote)
         
         producto_db = cursor.fetchone()
@@ -324,21 +324,21 @@ def procesar_retiro(datos: DatosRetiro):
         cursor = conn.cursor()
         
         # 1. VERIFICACIÓN DE SEGURIDAD: ¿Ya existe esta transacción?
-        cursor.execute("SELECT ID_Transaccion FROM Registro_Retiros WHERE ID_Transaccion = ?", datos.id_transaccion)
+        cursor.execute("SELECT ID_Transaccion FROM Registro_Retiros WHERE ID_Transaccion = %s", datos.id_transaccion)
         if cursor.fetchone():
             conn.close()
             # Devolvemos error 400 si el QR ya fue usado
             raise HTTPException(status_code=400, detail="Este Código QR ya fue canjeado anteriormente.")
         
         # 2. Si no existe, registramos la transacción para quemar el QR
-        cursor.execute("INSERT INTO Registro_Retiros (ID_Transaccion, Telefono_Usuario) VALUES (?, ?)", 
+        cursor.execute("INSERT INTO Registro_Retiros (ID_Transaccion, Telefono_Usuario) VALUES (%s, %s)", 
                     datos.id_transaccion, datos.usuario)
         
         # 3. Descontamos 1 unidad del lote
         cursor.execute("""
             UPDATE Inventario_Lotes 
             SET Cantidad_Disponible = Cantidad_Disponible - 1 
-            WHERE ID_Lote = ? AND Cantidad_Disponible > 0
+            WHERE ID_Lote = %s AND Cantidad_Disponible > 0
         """, datos.id_lote)
         
         conn.commit()
