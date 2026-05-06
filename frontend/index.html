@@ -3,24 +3,42 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-width=1.0">
-    <title>SREPI - Punto Express Híbrido</title>
+    <title>SREPI - Centro de Control</title>
     <!-- Importamos nuestro CSS -->
     <link rel="stylesheet" href="css/style.css">
-    <!-- Importamos la librería para leer QR -->
-    <script src="https://unpkg.com/html5-qrcode"></script>
+    <!-- Pantalla principal de acceso -->
 </head>
 <body>
 
-    <div class="contenedor">
-        <h2>Punto Express SREPI</h2>
-        <span id="badge-estado" class="badge-edge badge-online">🟢 CONECTADO (ONLINE)</span>
-        <p class="descripcion">Acerca el Código QR a la cámara para procesar el retiro.</p>
-        
-        <div id="reader"></div>
-        <div id="resultado"></div>
-    </div>
+    <div class="page">
+        <header class="hero">
+            <div class="hero-text">
+                <p class="eyebrow">SREPI Control Center</p>
+                <h1>SREPI - Centro de Control</h1>
+                <p class="hero-sub">Selecciona el modulo que deseas abrir.</p>
+            </div>
+        </header>
 
-    <!-- Importamos nuestra lógica JS (defer asegura que el HTML cargue primero) -->
-    <script src="js/app.js" defer></script>
+        <main class="landing">
+            <div class="landing-grid">
+                <a class="link-card" href="./views/kiosco.html">
+                    <div>
+                        <p class="link-eyebrow">Modulo</p>
+                        <h2>Punto Express (Kiosco)</h2>
+                        <p class="descripcion">Escaneo QR, validacion y entrega de productos.</p>
+                    </div>
+                    <span class="link-cta">Abrir kiosco</span>
+                </a>
+                <a class="link-card" href="./views/admin.html">
+                    <div>
+                        <p class="link-eyebrow">Administracion</p>
+                        <h2>Panel DDA y Gamificacion</h2>
+                        <p class="descripcion">Ajusta umbrales, descuentos y XP base.</p>
+                    </div>
+                    <span class="link-cta">Abrir panel</span>
+                </a>
+            </div>
+        </main>
+    </div>
 </body>
 </html>

@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>SREPI - Administracion DDA</title>
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div class="page">
+        <header class="hero">
+            <div class="hero-text">
+                <p class="eyebrow">SREPI Control Center</p>
+                <h1>Administracion DDA y Gamificacion</h1>
+                <p class="hero-sub">Ajusta umbrales, descuentos y XP base.</p>
+            </div>
+            <div class="hero-actions">
+                <a class="btn-secundario" href="../index.html">Volver al inicio</a>
+                <a class="tab-btn" href="./kiosco.html">Kiosco</a>
+                <a class="tab-btn is-active" href="./admin.html">Admin DDA</a>
+            </div>
+        </header>
+
+        <main class="views">
+            <section class="view view-active">
+                <div class="card admin-card">
+                    <div class="admin-header">
+                        <div>
+                            <h2>Configuracion DDA</h2>
+                            <p class="descripcion">Cambios locales (simulados) para el motor de descuentos.</p>
+                        </div>
+                        <div class="admin-actions">
+                            <span id="guardar-estado" class="estado-guardado"></span>
+                            <button class="btn-primario" id="guardar-config">Guardar cambios</button>
+                        </div>
+                    </div>
+
+                    <div class="admin-grid">
+                        <form class="panel" id="dda-form">
+                            <h3>Segmento</h3>
+                            <label class="field">
+                                <span>Categoria</span>
+                                <select id="categoria-select">
+                                    <option value="">Selecciona una categoria</option>
+                                </select>
+                            </label>
+                            <label class="field">
+                                <span>Producto</span>
+                                <select id="producto-select">
+                                    <option value="">Selecciona un producto</option>
+                                </select>
+                            </label>
+                            <div class="split">
+                                <label class="field">
+                                    <span>Multiplicador categoria</span>
+                                    <input type="number" id="categoria-multiplicador" value="1.0" min="0.5" max="3" step="0.1">
+                                </label>
+                                <label class="field">
+                                    <span>Descuento producto (%)</span>
+                                    <input type="number" id="producto-descuento" value="0" min="-20" max="40" step="1">
+                                </label>
+                            </div>
+
+                            <h3>Umbrales por tiempo</h3>
+                            <label class="field">
+                                <span>Zona roja (horas)</span>
+                                <div class="field-row">
+                                    <input type="range" id="dda-roja-horas" min="1" max="6" value="3">
+                                    <span class="chip" id="dda-roja-horas-val">3h</span>
+                                </div>
+                            </label>
+                            <label class="field">
+                                <span>Zona amarilla (horas)</span>
+                                <div class="field-row">
+                                    <input type="range" id="dda-amarilla-horas" min="2" max="12" value="6">
+                                    <span class="chip" id="dda-amarilla-horas-val">6h</span>
+                                </div>
+                            </label>
+
+                            <h3>Descuentos</h3>
+                            <label class="field">
+                                <span>Descuento zona roja (%)</span>
+                                <div class="field-row">
+                                    <input type="range" id="dda-desc-roja" min="10" max="90" value="70">
+                                    <span class="chip" id="dda-desc-roja-val">70%</span>
+                                </div>
+                            </label>
+                            <label class="field">
+                                <span>Descuento zona amarilla (%)</span>
+                                <div class="field-row">
+                                    <input type="range" id="dda-desc-amarilla" min="10" max="90" value="50">
+                                    <span class="chip" id="dda-desc-amarilla-val">50%</span>
+                                </div>
+                            </label>
+                            <label class="field">
+                                <span>Descuento zona verde (%)</span>
+                                <div class="field-row">
+                                    <input type="range" id="dda-desc-verde" min="5" max="60" value="20">
+                                    <span class="chip" id="dda-desc-verde-val">20%</span>
+                                </div>
+                            </label>
+
+                            <h3>XP base</h3>
+                            <div class="split">
+                                <label class="field">
+                                    <span>XP roja</span>
+                                    <input type="number" id="xp-roja" value="100" min="10" step="10">
+                                </label>
+                                <label class="field">
+                                    <span>XP amarilla</span>
+                                    <input type="number" id="xp-amarilla" value="50" min="10" step="10">
+                                </label>
+                                <label class="field">
+                                    <span>XP verde</span>
+                                    <input type="number" id="xp-verde" value="20" min="5" step="5">
+                                </label>
+                                <label class="field">
+                                    <span>Multiplicador</span>
+                                    <input type="number" id="xp-multiplicador" value="1.0" min="0.5" max="3" step="0.1">
+                                </label>
+                            </div>
+                        </form>
+
+                        <div class="panel preview">
+                            <h3>Vista rapida</h3>
+                            <label class="field">
+                                <span>Precio base</span>
+                                <input type="number" id="preview-precio" value="12000" min="1000" step="500">
+                            </label>
+                            <label class="field">
+                                <span>Horas para vencer</span>
+                                <input type="number" id="preview-horas" value="4" min="1" step="1">
+                            </label>
+
+                            <div class="preview-card">
+                                <p class="preview-title">Resultado DDA</p>
+                                <div class="preview-grid">
+                                    <div>
+                                        <span class="muted">Precio oferta</span>
+                                        <p class="preview-value" id="preview-precio-oferta">$0</p>
+                                    </div>
+                                    <div>
+                                        <span class="muted">XP otorgada</span>
+                                        <p class="preview-value" id="preview-xp">0 XP</p>
+                                    </div>
+                                    <div>
+                                        <span class="muted">Zona</span>
+                                        <p class="preview-value" id="preview-zona">-</p>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="panel-note">
+                                <span class="dot"></span>
+                                Cambios pendientes de sincronizar con el backend.
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="../js/admin.js" defer></script>
+</body>
+</html>

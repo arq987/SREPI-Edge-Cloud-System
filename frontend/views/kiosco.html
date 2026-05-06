@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>SREPI - Punto Express</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <script src="https://unpkg.com/html5-qrcode"></script>
+</head>
+<body>
+    <div class="page">
+        <header class="hero">
+            <div class="hero-text">
+                <p class="eyebrow">SREPI Control Center</p>
+                <h1>Punto Express SREPI</h1>
+                <p class="hero-sub">Escanea el QR para validar el retiro.</p>
+            </div>
+            <div class="hero-actions">
+                <a class="btn-secundario" href="../index.html">Volver al inicio</a>
+                <a class="tab-btn is-active" href="./kiosco.html">Kiosco</a>
+                <a class="tab-btn" href="./admin.html">Admin DDA</a>
+            </div>
+        </header>
+
+        <main class="views">
+            <section class="view view-active">
+                <div class="contenedor card">
+                    <span id="badge-estado" class="badge-edge badge-online">🟢 CONECTADO (ONLINE)</span>
+                    <p class="descripcion">Acerca el Codigo QR a la camara para procesar el retiro.</p>
+
+                    <div id="reader"></div>
+                    <div id="resultado"></div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script src="../js/kiosco.js" defer></script>
+</body>
+</html>

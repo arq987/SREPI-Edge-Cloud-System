@@ -5,6 +5,7 @@ import requests
 import pymssql
 import jwt
 from datetime import datetime, timedelta
+from typing import Optional, List
 import os
 from dotenv import load_dotenv
 import uuid
@@ -29,6 +30,8 @@ DB_USER = os.getenv("DB_USER")
 DB_PASSWORD = os.getenv("DB_PASSWORD")
 DB_NAME = os.getenv("DB_NAME")  
 SECRET_KEY = os.getenv("SECRET_KEY_JWT")   
+DB_LOGIN_TIMEOUT_SECONDS = 60
+DB_QUERY_TIMEOUT_SECONDS = 60
 
 def obtener_conexion():
     try:
@@ -37,7 +40,9 @@ def obtener_conexion():
             server=DB_SERVER,
             user=DB_USER,
             password=DB_PASSWORD,
-            database=DB_NAME
+            database=DB_NAME,
+            login_timeout=DB_LOGIN_TIMEOUT_SECONDS,
+            timeout=DB_QUERY_TIMEOUT_SECONDS
         )
         return conn
     except Exception as e:
@@ -150,7 +155,20 @@ async def recibir_mensaje_whatsapp(request: Request):
                 # --- MÁQUINA DE ESTADOS DEL BOT ---
                 if "hola" in texto_mensaje or "oferta" in texto_mensaje:
                     # 1. El cliente saluda, consultamos la base de datos SQL
-                    ofertas = consultar_ofertas_disponibles()["ofertas_activas"]
+                    enviar_mensaje_whatsapp(
+                        telefono_cliente,
+                        "🤖 *SREPI Bot:*\n¡Hola!⏳ Consultando ofertas."
+                    )
+                    try:
+                        ofertas = consultar_ofertas_disponibles()["ofertas_activas"]
+                    except HTTPException as he:
+                        if he.status_code == 503:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                "⚠️ No pudimos obtener ofertas disponibles en este momento. Intenta de nuevo en unos minutos."
+                            )
+                            return {"status": "success"}
+                        raise
                     
                     # --- NUEVA LÓGICA: LIMITAR A TOP 10 ---
                     top_ofertas = ofertas[:10] 
@@ -169,7 +187,16 @@ async def recibir_mensaje_whatsapp(request: Request):
                 
                 elif texto_mensaje.isdigit():
                     # 2. El cliente envía un número (ID de Lote), procesamos la reserva
-                    resultado = confirmar_reserva(int(texto_mensaje), telefono_cliente)
+                    try:
+                        resultado = confirmar_reserva(int(texto_mensaje), telefono_cliente)
+                    except HTTPException as he:
+                        if he.status_code == 503:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                "⚠️ No pudimos realizar la reserva en este momento. Intenta de nuevo en unos minutos."
+                            )
+                            return {"status": "success"}
+                        raise
                     
                     if "error" in resultado:
                         enviar_mensaje_whatsapp(telefono_cliente, f"🤖 *Error:* {resultado['error']}")
@@ -211,6 +238,8 @@ def consultar_ofertas_disponibles():
     
     try:
         conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
         cursor = conn.cursor()
         
         # Ejecutamos el Stored Procedure que creamos en SQL Server
@@ -248,6 +277,252 @@ def consultar_ofertas_disponibles():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error conectando al ERP (SQL Server): {str(e)}")
 
+# --- ENDPOINTS: CATEGORIAS Y PRODUCTOS ---
+@app.get("/api/categorias")
+def listar_categorias():
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT
+                c.ID_Categoria,
+                c.Nombre,
+                COALESCE(cfg.Multiplicador_XP, c.Multiplicador_XP, 1.0)
+            FROM Categorias c
+            LEFT JOIN DDA_Categoria_Config cfg ON cfg.ID_Categoria = c.ID_Categoria
+            ORDER BY Nombre
+        """)
+        filas = cursor.fetchall()
+        conn.close()
+
+        categorias = [
+            {
+                "id": int(fila[0]),
+                "nombre": fila[1],
+                "multiplicador": float(fila[2])
+            }
+            for fila in filas
+        ]
+
+        return {"categorias": categorias}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando categorias: {str(e)}")
+
+
+@app.get("/api/productos")
+def listar_productos(categoria_id: Optional[int] = Query(None)):
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        if categoria_id is None:
+            cursor.execute("""
+                SELECT
+                    p.SKU,
+                    p.ID_Categoria,
+                    p.Nombre,
+                    COALESCE(cfg.Descuento_Extra, 0)
+                FROM Productos p
+                LEFT JOIN DDA_Producto_Config cfg ON cfg.SKU = p.SKU
+                ORDER BY Nombre
+            """)
+        else:
+            cursor.execute("""
+                SELECT
+                    p.SKU,
+                    p.ID_Categoria,
+                    p.Nombre,
+                    COALESCE(cfg.Descuento_Extra, 0)
+                FROM Productos p
+                LEFT JOIN DDA_Producto_Config cfg ON cfg.SKU = p.SKU
+                WHERE p.ID_Categoria = %s
+                ORDER BY Nombre
+            """, categoria_id)
+
+        filas = cursor.fetchall()
+        conn.close()
+
+        productos = [
+            {
+                "id": fila[0],
+                "categoria_id": int(fila[1]),
+                "nombre": fila[2],
+                "descuento": float(fila[3])
+            }
+            for fila in filas
+        ]
+
+        return {"productos": productos}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error consultando productos: {str(e)}")
+
+
+class DDAConfigCategoria(BaseModel):
+    id: int
+    multiplicador: float
+
+
+class DDAConfigProducto(BaseModel):
+    id: str
+    descuento: float
+
+
+class DDAConfigPayload(BaseModel):
+    categorias: List[DDAConfigCategoria] = []
+    productos: List[DDAConfigProducto] = []
+
+
+@app.post("/api/dda/config")
+def guardar_config_dda(payload: DDAConfigPayload):
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        for categoria in payload.categorias:
+            cursor.execute(
+                "SELECT Multiplicador_XP FROM DDA_Categoria_Config WHERE ID_Categoria = %s",
+                (categoria.id,)
+            )
+            fila_actual = cursor.fetchone()
+            valor_anterior = float(fila_actual[0]) if fila_actual else None
+
+            cursor.execute("""
+                IF EXISTS (SELECT 1 FROM DDA_Categoria_Config WHERE ID_Categoria = %s)
+                    UPDATE DDA_Categoria_Config
+                    SET Multiplicador_XP = %s, Fecha_Actualizacion = SYSUTCDATETIME()
+                    WHERE ID_Categoria = %s
+                ELSE
+                    INSERT INTO DDA_Categoria_Config (ID_Categoria, Multiplicador_XP)
+                    VALUES (%s, %s)
+            """, (categoria.id, categoria.multiplicador, categoria.id, categoria.id, categoria.multiplicador))
+
+            if valor_anterior is None or valor_anterior != categoria.multiplicador:
+                cursor.execute("""
+                    INSERT INTO DDA_Config_Historial (Tipo, Clave, Valor_Anterior, Valor_Nuevo)
+                    VALUES (%s, %s, %s, %s)
+                """, ("categoria", str(categoria.id), valor_anterior, categoria.multiplicador))
+
+        for producto in payload.productos:
+            cursor.execute(
+                "SELECT Descuento_Extra FROM DDA_Producto_Config WHERE SKU = %s",
+                (producto.id,)
+            )
+            fila_actual = cursor.fetchone()
+            valor_anterior = float(fila_actual[0]) if fila_actual else None
+
+            cursor.execute("""
+                IF EXISTS (SELECT 1 FROM DDA_Producto_Config WHERE SKU = %s)
+                    UPDATE DDA_Producto_Config
+                    SET Descuento_Extra = %s, Fecha_Actualizacion = SYSUTCDATETIME()
+                    WHERE SKU = %s
+                ELSE
+                    INSERT INTO DDA_Producto_Config (SKU, Descuento_Extra)
+                    VALUES (%s, %s)
+            """, (producto.id, producto.descuento, producto.id, producto.id, producto.descuento))
+
+            if valor_anterior is None or valor_anterior != producto.descuento:
+                cursor.execute("""
+                    INSERT INTO DDA_Config_Historial (Tipo, Clave, Valor_Anterior, Valor_Nuevo)
+                    VALUES (%s, %s, %s, %s)
+                """, ("producto", producto.id, valor_anterior, producto.descuento))
+
+        conn.commit()
+        conn.close()
+
+        return {"status": "success"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error guardando configuracion DDA: {str(e)}")
+
+
+@app.get("/api/dda/config")
+def leer_config_dda():
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT ID_Categoria, Multiplicador_XP
+            FROM DDA_Categoria_Config
+            ORDER BY ID_Categoria
+        """)
+        categorias = [
+            {"id": int(fila[0]), "multiplicador": float(fila[1])}
+            for fila in cursor.fetchall()
+        ]
+
+        cursor.execute("""
+            SELECT SKU, Descuento_Extra
+            FROM DDA_Producto_Config
+            ORDER BY SKU
+        """)
+        productos = [
+            {"id": fila[0], "descuento": float(fila[1])}
+            for fila in cursor.fetchall()
+        ]
+
+        conn.close()
+
+        return {"categorias": categorias, "productos": productos}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error leyendo configuracion DDA: {str(e)}")
+
+
+@app.get("/api/dda/historial")
+def leer_historial_dda(limit: int = Query(100)):
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT TOP (%s)
+                ID_Historial,
+                Tipo,
+                Clave,
+                Valor_Anterior,
+                Valor_Nuevo,
+                Fecha_Registro
+            FROM DDA_Config_Historial
+            ORDER BY Fecha_Registro DESC
+        """, limit)
+
+        historial = [
+            {
+                "id": int(fila[0]),
+                "tipo": fila[1],
+                "clave": fila[2],
+                "valor_anterior": float(fila[3]) if fila[3] is not None else None,
+                "valor_nuevo": float(fila[4]),
+                "fecha": fila[5].isoformat()
+            }
+            for fila in cursor.fetchall()
+        ]
+
+        conn.close()
+
+        return {"historial": historial}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error leyendo historial DDA: {str(e)}")
+
 # --- ENDPOINT: GENERACIÓN DE RESERVA Y CÓDIGO QR ---
 @app.post("/api/reservar/{id_lote}")
 def confirmar_reserva(id_lote: int, telefono_usuario: str):
@@ -257,6 +532,8 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
     """
     try:
         conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
         cursor = conn.cursor()
         
 # Validamos que el lote exista y tenga stock
@@ -322,6 +599,8 @@ class DatosRetiro(BaseModel):
 def procesar_retiro(datos: DatosRetiro):
     try:
         conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
         cursor = conn.cursor()
         
         # 1. VERIFICACIÓN DE SEGURIDAD: ¿Ya existe esta transacción?
