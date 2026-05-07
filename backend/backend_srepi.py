@@ -32,6 +32,8 @@ DB_NAME = os.getenv("DB_NAME")
 SECRET_KEY = os.getenv("SECRET_KEY_JWT")   
 DB_LOGIN_TIMEOUT_SECONDS = 60
 DB_QUERY_TIMEOUT_SECONDS = 60
+DEFAULT_RESERVA_VALOR = 2
+DEFAULT_RESERVA_UNIDAD = "horas"
 
 BOT_ESTADOS = {}
 ESTADO_ESPERANDO_CATEGORIA = "esperando_categoria"
@@ -137,8 +139,67 @@ def formatear_ofertas(ofertas):
     for item in ofertas:
         respuesta += f"🟢 Envía *{item['id_lote']}* para rescatar: {item['producto']}\n"
         respuesta += f"💵 {item['precio_original']} -> *{item['precio_oferta']}*\n"
-        respuesta += f"⏳ Vence en {item['vence_en_horas']}h | Ganas {item['recompensa_xp']} XP\n---\n"
+        respuesta += f"⏳ Vence en {item['vence_en_dias']} dias | Ganas {item['recompensa_xp']} XP\n---\n"
     return respuesta
+
+def obtener_config_reserva():
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            return {"valor": DEFAULT_RESERVA_VALOR, "unidad": DEFAULT_RESERVA_UNIDAD}
+        cursor = conn.cursor()
+        cursor.execute("SELECT Valor, Unidad FROM SREPI_Reserva_Config WHERE ID_Config = 1")
+        fila = cursor.fetchone()
+        conn.close()
+        if not fila:
+            return {"valor": DEFAULT_RESERVA_VALOR, "unidad": DEFAULT_RESERVA_UNIDAD}
+        valor = int(fila[0])
+        unidad = str(fila[1])
+        if unidad not in ("horas", "dias"):
+            unidad = DEFAULT_RESERVA_UNIDAD
+        if valor <= 0:
+            valor = DEFAULT_RESERVA_VALOR
+        return {"valor": valor, "unidad": unidad}
+    except Exception:
+        return {"valor": DEFAULT_RESERVA_VALOR, "unidad": DEFAULT_RESERVA_UNIDAD}
+
+class ReservaConfigPayload(BaseModel):
+    valor: int
+    unidad: str
+
+@app.get("/api/dda/reserva-config")
+def leer_config_reserva():
+    return obtener_config_reserva()
+
+@app.post("/api/dda/reserva-config")
+def guardar_config_reserva(payload: ReservaConfigPayload):
+    unidad = payload.unidad.strip().lower()
+    if unidad not in ("horas", "dias"):
+        raise HTTPException(status_code=400, detail="Unidad invalida")
+    if payload.valor <= 0:
+        raise HTTPException(status_code=400, detail="Valor invalido")
+
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+        cursor.execute("""
+            IF EXISTS (SELECT 1 FROM SREPI_Reserva_Config WHERE ID_Config = 1)
+                UPDATE SREPI_Reserva_Config
+                SET Valor = %s, Unidad = %s, Fecha_Actualizacion = SYSUTCDATETIME()
+                WHERE ID_Config = 1
+            ELSE
+                INSERT INTO SREPI_Reserva_Config (ID_Config, Valor, Unidad)
+                VALUES (1, %s, %s)
+        """, (payload.valor, unidad, payload.valor, unidad))
+        conn.commit()
+        conn.close()
+        return {"status": "success"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error guardando configuracion reserva: {str(e)}")
 # ====================================================================
 # FASE 2: WEBHOOK DE WHATSAPP (META CLOUD API)
 # ====================================================================
@@ -180,7 +241,7 @@ async def recibir_mensaje_whatsapp(request: Request):
                     # 1. El cliente saluda, listamos categorias antes de mostrar ofertas
                     enviar_mensaje_whatsapp(
                         telefono_cliente,
-                        "🤖 *SREPI Bot:*\n¡Hola! Primero elige una categoria para ver ofertas."
+                        "🤖 *SREPI Bot:*\n¡Hola! Elige una categoria para ver sus ofertas."
                     )
                     try:
                         categorias_por_id = obtener_categorias_por_id()
@@ -348,11 +409,11 @@ async def recibir_mensaje_whatsapp(request: Request):
         return {"status": "error"}
 
 # --- MOTOR DDA Y GAMIFICACIÓN ---
-def calcular_dda_y_gamificacion(precio_base, horas, multiplicador_xp):
-    """Calcula el descuento según las horas y aplica el multiplicador de la categoría"""
-    if horas <= 3:
+def calcular_dda_y_gamificacion(precio_base, dias, multiplicador_xp):
+    """Calcula el descuento según los dias y aplica el multiplicador de la categoría"""
+    if dias <= 2:
         descuento, xp_base = 0.70, 100  # Zona Roja Crítica
-    elif horas <= 6:
+    elif dias <= 3:
         descuento, xp_base = 0.50, 50   # Zona Amarilla
     else:
         descuento, xp_base = 0.20, 20   # Zona Verde/Preventiva
@@ -363,6 +424,84 @@ def calcular_dda_y_gamificacion(precio_base, horas, multiplicador_xp):
     xp_total = int(xp_base * multiplicador_xp) 
     
     return precio_final, xp_total
+
+def clasificar_riesgo_por_dias(dias):
+    if dias <= 2:
+        return "roja"
+    if dias <= 3:
+        return "amarilla"
+    return "verde"
+
+def resumen_dashboard_vacio():
+    return {
+        "riesgo": {"roja": 0, "amarilla": 0, "verde": 0},
+        "ventas": {"roja": 0, "amarilla": 0, "verde": 0, "total": 0},
+        "recaudo": {"roja": 0, "amarilla": 0, "verde": 0, "total": 0}
+    }
+
+@app.get("/api/dashboard/resumen")
+def obtener_dashboard_resumen():
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        cursor.execute("SELECT ID_Transaccion, ID_Lote, Precio_Pagado FROM SREPI_Reservas_Log")
+        reservas = cursor.fetchall()
+
+        cursor.execute("SELECT ID_Transaccion FROM Registro_Retiros")
+        retiros = [fila[0] for fila in cursor.fetchall()]
+
+        cursor.execute("SELECT ID_Lote, DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento) FROM Inventario_Lotes")
+        dias_por_lote = {int(fila[0]): int(fila[1]) for fila in cursor.fetchall()}
+        conn.close()
+
+        if not reservas:
+            return resumen_dashboard_vacio()
+
+        reservas_por_transaccion = {}
+        riesgo = {"roja": 0, "amarilla": 0, "verde": 0}
+        for fila in reservas:
+            id_transaccion = fila[0]
+            id_lote = int(fila[1])
+            pagado = float(fila[2])
+
+            reservas_por_transaccion[id_transaccion] = {
+                "id_lote": id_lote,
+                "pagado": pagado
+            }
+
+            dias = dias_por_lote.get(id_lote, 0)
+            categoria = clasificar_riesgo_por_dias(dias)
+            riesgo[categoria] += 1
+
+        ventas = {"roja": 0, "amarilla": 0, "verde": 0, "total": 0}
+        recaudo = {"roja": 0, "amarilla": 0, "verde": 0, "total": 0}
+
+        for id_transaccion in retiros:
+            reserva = reservas_por_transaccion.get(id_transaccion)
+            if not reserva:
+                continue
+
+            dias = dias_por_lote.get(reserva["id_lote"], 0)
+            categoria = clasificar_riesgo_por_dias(dias)
+
+            ventas[categoria] += 1
+            ventas["total"] += 1
+
+            recaudo[categoria] += reserva["pagado"]
+            recaudo["total"] += reserva["pagado"]
+
+        return {
+            "riesgo": riesgo,
+            "ventas": ventas,
+            "recaudo": recaudo
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando dashboard: {str(e)}")
 
 # --- ENDPOINT: CATÁLOGO DE OFERTAS ---
 @app.get("/api/ofertas")
@@ -388,17 +527,17 @@ def consultar_ofertas_disponibles():
             precio_base = float(fila[4])
             multiplicador_xp = float(fila[5])
             cantidad = fila[6]
-            horas = fila[7]
+            dias = fila[7]
             
             # Pasamos los datos por el motor DDA
-            precio_descuento, puntos_xp = calcular_dda_y_gamificacion(precio_base, horas, multiplicador_xp)
+            precio_descuento, puntos_xp = calcular_dda_y_gamificacion(precio_base, dias, multiplicador_xp)
             
             ofertas_procesadas.append({
                 "id_lote": id_lote,
                 "sku": sku,
                 "producto": f"{nombre} ({categoria})",
                 "unidades_disponibles": cantidad,
-                "vence_en_horas": horas,
+                "vence_en_dias": dias,
                 "precio_original": f"${precio_base:,.0f}",
                 "precio_oferta": f"${precio_descuento:,.0f}",
                 "recompensa_xp": puntos_xp
@@ -671,7 +810,7 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
         
 # Validamos que el lote exista y tenga stock
         cursor.execute("""
-            SELECT P.Nombre, P.Precio_Base, DATEDIFF(hour, GETUTCDATE(), L.Fecha_Vencimiento)
+            SELECT P.Nombre, P.Precio_Base, DATEDIFF(day, GETUTCDATE(), L.Fecha_Vencimiento)
             FROM Inventario_Lotes L
             INNER JOIN Productos P ON L.SKU = P.SKU
             WHERE L.ID_Lote = %s AND L.Cantidad_Disponible > 0
@@ -685,36 +824,60 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
 
         nombre_prod = producto_db[0]
         precio_base = float(producto_db[1])
-        horas = producto_db[2]
+        dias = producto_db[2]
         
         # Calculamos el precio final para meterlo en el QR (Asumimos multiplicador 1.0 por rapidez)
-        precio_pagado, xp_ganados = calcular_dda_y_gamificacion(precio_base, horas, 1.0)
+        precio_pagado, xp_ganados = calcular_dda_y_gamificacion(precio_base, dias, 1.0)
 
 # Generamos el payload para el Kiosco Edge
+        id_transaccion = str(uuid.uuid4())
+        config_reserva = obtener_config_reserva()
+        valor_reserva = int(config_reserva.get("valor", DEFAULT_RESERVA_VALOR))
+        unidad_reserva = config_reserva.get("unidad", DEFAULT_RESERVA_UNIDAD)
+        if unidad_reserva == "dias":
+            expiracion = datetime.utcnow() + timedelta(days=valor_reserva)
+        else:
+            expiracion = datetime.utcnow() + timedelta(hours=valor_reserva)
+
         payload_qr = {
-            "id_transaccion": str(uuid.uuid4()),  # <--- SELLO DE SEGURIDAD ÚNICO
+            "id_transaccion": id_transaccion,  # <--- SELLO DE SEGURIDAD ÚNICO
             "id_lote": id_lote,
             "usuario": telefono_usuario,
             "producto": nombre_prod,
             "pagado": precio_pagado,
             "xp": xp_ganados,
-            "exp": datetime.utcnow() + timedelta(hours=2)
+            "exp": expiracion
         }
 # Generamos el Token Criptográfico (JWT)
         token_reserva = jwt.encode(payload_qr, SECRET_KEY, algorithm="HS256")
         
         # Armamos el pie de foto (caption) que acompañará al Código QR
+        etiqueta_tiempo = "dias" if unidad_reserva == "dias" else "horas"
         mensaje_pie_foto = (
             f"🎉 *¡Reserva Exitosa!*\n\n"
             f"📦 {nombre_prod}\n"
             f"💵 Pagas: ${precio_pagado:,.0f}\n"
             f"⭐ Ganas: {xp_ganados} XP\n\n"
             f"Acércate al Punto Express SREPI y muestra este Código QR a la cámara para retirar tu producto. "
-            f"Tienes 2 horas antes de que la reserva expire."
+            f"Tienes {valor_reserva} {etiqueta_tiempo} antes de que la reserva expire."
         )
         
         # ¡Magia! Enviamos la imagen directamente al WhatsApp del cliente
         enviar_qr_whatsapp(telefono_usuario, token_reserva, mensaje_pie_foto)
+
+        try:
+            conn = obtener_conexion()
+            if conn:
+                cursor = conn.cursor()
+                cursor.execute("""
+                    IF NOT EXISTS (SELECT 1 FROM SREPI_Reservas_Log WHERE ID_Transaccion = %s)
+                        INSERT INTO SREPI_Reservas_Log (ID_Transaccion, ID_Lote, Precio_Pagado)
+                        VALUES (%s, %s, %s)
+                """, (id_transaccion, id_transaccion, id_lote, precio_pagado))
+                conn.commit()
+                conn.close()
+        except Exception as e:
+            print(f"⚠️ No se pudo registrar la reserva en el log: {e}")
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en la reserva: {str(e)}")

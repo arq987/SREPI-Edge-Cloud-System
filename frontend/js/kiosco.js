@@ -47,7 +47,7 @@ function onScanSuccess(decodedText, decodedResult) {
             <h3 style="color: #856404; margin-top:0; text-align:center;">⏳ Verificando Servidor...</h3>
             <p style="text-align:center; color: #666;">Validando conexion central.</p>`;
 
-        fetch("http://localhost:8000/api/kiosco/confirmar-retiro", {
+        fetch("https://srepi-backend.onrender.com/api/kiosco/confirmar-retiro", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({
@@ -224,7 +224,7 @@ function verificarServidor() {
         return;
     }
 
-    fetch("http://localhost:8000/", { method: "GET", cache: "no-store" })
+    fetch("https://srepi-backend.onrender.com/", { method: "GET", cache: "no-store" })
     .then(() => {
         if (!servidorVivo) {
             servidorVivo = true;
@@ -249,7 +249,7 @@ function sincronizarPendientes() {
         if (key && key.startsWith("offline_")) {
             let datosReserva = JSON.parse(localStorage.getItem(key));
 
-            fetch("http://localhost:8000/api/kiosco/confirmar-retiro", {
+            fetch("https://srepi-backend.onrender.com/api/kiosco/confirmar-retiro", {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify(datosReserva)

@@ -12,7 +12,7 @@ def imprimir_ofertas(ofertas):
     for oferta in ofertas:
         print(f"   🟢 ID: {oferta['id_lote']} | {oferta['producto']}")
         print(f"      Antes: {oferta['precio_original']} -> AHORA: {oferta['precio_oferta']}")
-        print(f"      ⏳ ¡Vence en {oferta['vence_en_horas']} horas! Ganas {oferta['recompensa_xp']} XP.")
+        print(f"      ⏳ ¡Vence en {oferta['vence_en_dias']} dias! Ganas {oferta['recompensa_xp']} XP.")
         print("   ---")
 
 def simular_chat_whatsapp():

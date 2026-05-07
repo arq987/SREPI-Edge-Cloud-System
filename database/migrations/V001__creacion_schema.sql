@@ -195,7 +195,7 @@ BEGIN TRY
                 P.Precio_Base,
                 C.Multiplicador_XP,
                 L.Cantidad_Disponible,
-                DATEDIFF(hour, @HoraActual, L.Fecha_Vencimiento) AS HorasParaVencer
+                DATEDIFF(day, @HoraActual, L.Fecha_Vencimiento) AS DiasParaVencer
             FROM
                 Inventario_Lotes L
             INNER JOIN
@@ -209,7 +209,7 @@ BEGIN TRY
                 AND L.Cantidad_Disponible > 0
                 AND L.Fecha_Vencimiento > @HoraActual
             ORDER BY
-                HorasParaVencer ASC;
+                DiasParaVencer ASC;
         END;
 
         INSERT INTO dbo.schema_version (version, description)
