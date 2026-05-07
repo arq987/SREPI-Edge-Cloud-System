@@ -2,34 +2,89 @@ import requests
 import time
 
 URL_BASE = "http://127.0.0.1:8000/api"
+MAX_OFERTAS_POR_MENSAJE = 10
+
+def filtrar_ofertas_por_categoria(ofertas, categoria_nombre):
+    marcador = f"({categoria_nombre})"
+    return [item for item in ofertas if marcador in item.get("producto", "")]
+
+def imprimir_ofertas(ofertas):
+    for oferta in ofertas:
+        print(f"   🟢 ID: {oferta['id_lote']} | {oferta['producto']}")
+        print(f"      Antes: {oferta['precio_original']} -> AHORA: {oferta['precio_oferta']}")
+        print(f"      ⏳ ¡Vence en {oferta['vence_en_horas']} horas! Ganas {oferta['recompensa_xp']} XP.")
+        print("   ---")
 
 def simular_chat_whatsapp():
     print("📱 [WhatsApp] - Chat con 'SREPI Bot'")
     print("-" * 40)
     print("🤖 SREPI Bot: ¡Hola! Soy tu asistente de rescate de alimentos.")
-    print("🤖 SREPI Bot: Buscando productos próximos a vencer en tu sede más cercana...")
+    print("🤖 SREPI Bot: Primero elige una categoria para ver ofertas...")
     time.sleep(1.5)
 
-    # 1. El bot consulta el backend automáticamente
+    # 1. El bot consulta las categorias
     try:
-        respuesta_ofertas = requests.get(f"{URL_BASE}/ofertas")
-        ofertas = respuesta_ofertas.json()["ofertas_activas"]
-        
-        print("\n🤖 SREPI Bot: ¡Encontré estas Cajas Sorpresa para ti hoy!")
-        for oferta in ofertas:
-            print(f"   🟢 ID: {oferta['id']} | {oferta['producto']}")
-            print(f"      Antes: {oferta['precio_original']} -> AHORA: {oferta['precio_oferta']}")
-            print(f"      ⏳ ¡Vence en {oferta['vence_en_horas']} horas! Ganas {oferta['recompensa_xp']} XP.")
-            print("   ---")
-            
+        respuesta_categorias = requests.get(f"{URL_BASE}/categorias")
+        categorias = respuesta_categorias.json()["categorias"]
+        if not categorias:
+            print("🤖 SREPI Bot: No hay categorias disponibles.")
+            return
+
+        print("\n🤖 SREPI Bot: Categorias disponibles:")
+        for categoria in categorias:
+            print(f"   🟢 {categoria['id']} - {categoria['nombre']}")
     except Exception as e:
         print("🤖 SREPI Bot: Ups, parece que el servidor (ERP) está desconectado.")
         return
 
     # 2. Interacción con el usuario (El cliente responde en el chat)
+    print("\n✍️  Tú: (Escribe el ID de la categoria, o 'salir')")
+    seleccion_categoria = input(">> ")
+    
+    if seleccion_categoria.lower() == 'salir':
+        print("🤖 SREPI Bot: ¡Entendido! Avísame si quieres rescatar alimentos luego.")
+        return
+
+    if not seleccion_categoria.isdigit():
+        print("🤖 SREPI Bot: Categoria no valida.")
+        return
+
+    categoria_id = int(seleccion_categoria)
+    categoria_nombre = None
+    for categoria in categorias:
+        if categoria["id"] == categoria_id:
+            categoria_nombre = categoria["nombre"]
+            break
+
+    if not categoria_nombre:
+        print("🤖 SREPI Bot: Categoria no valida.")
+        return
+
+    # 3. Consultamos ofertas y filtramos por categoria
+    try:
+        respuesta_ofertas = requests.get(f"{URL_BASE}/ofertas")
+        ofertas = respuesta_ofertas.json()["ofertas_activas"]
+        ofertas_filtradas = filtrar_ofertas_por_categoria(ofertas, categoria_nombre)
+
+        if not ofertas_filtradas:
+            print(f"\n🤖 SREPI Bot: No hay ofertas activas en {categoria_nombre}.")
+            return
+
+        print("\n🤖 SREPI Bot: ¡Encontré estas Cajas Sorpresa para ti hoy!")
+        imprimir_ofertas(ofertas_filtradas[:MAX_OFERTAS_POR_MENSAJE])
+
+        if len(ofertas_filtradas) > MAX_OFERTAS_POR_MENSAJE:
+            print("\n🤖 SREPI Bot: Escribe 'mas' para ver mas ofertas.")
+            respuesta_mas = input(">> ").strip().lower()
+            if respuesta_mas == "mas":
+                print("\n🤖 SREPI Bot: Hay mas ofertas disponibles:")
+                imprimir_ofertas(ofertas_filtradas[MAX_OFERTAS_POR_MENSAJE:MAX_OFERTAS_POR_MENSAJE * 2])
+    except Exception as e:
+        print("🤖 SREPI Bot: Ups, parece que el servidor (ERP) está desconectado.")
+        return
+
     print("\n✍️  Tú: (Escribe el ID del producto que quieres rescatar, o 'salir')")
     seleccion = input(">> ")
-    
     if seleccion.lower() == 'salir':
         print("🤖 SREPI Bot: ¡Entendido! Avísame si quieres rescatar alimentos luego.")
         return

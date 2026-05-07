@@ -33,6 +33,12 @@ SECRET_KEY = os.getenv("SECRET_KEY_JWT")
 DB_LOGIN_TIMEOUT_SECONDS = 60
 DB_QUERY_TIMEOUT_SECONDS = 60
 
+BOT_ESTADOS = {}
+ESTADO_ESPERANDO_CATEGORIA = "esperando_categoria"
+ESTADO_ESPERANDO_LOTE = "esperando_lote"
+ESTADO_ESPERANDO_MAS = "esperando_mas"
+MAX_OFERTAS_POR_MENSAJE = 10
+
 def obtener_conexion():
     try:
         # pymssql se conecta de forma nativa sin necesitar drivers externos
@@ -116,6 +122,23 @@ def enviar_qr_whatsapp(telefono_destino: str, token_jwt: str, texto_caption: str
             print(f"Detalle: {respuesta.text}")
     else:
         print(f"\n[SIMULACIÓN QR a {telefono_destino}]:\nImagen: {url_imagen_qr}\nTexto: {texto_caption}\n")
+
+def obtener_categorias_por_id():
+    resultado = listar_categorias()
+    categorias = resultado.get("categorias", [])
+    return {int(c["id"]): c["nombre"] for c in categorias}
+
+def filtrar_ofertas_por_categoria(ofertas, categoria_nombre):
+    marcador = f"({categoria_nombre})"
+    return [item for item in ofertas if marcador in item.get("producto", "")]
+
+def formatear_ofertas(ofertas):
+    respuesta = ""
+    for item in ofertas:
+        respuesta += f"🟢 Envía *{item['id_lote']}* para rescatar: {item['producto']}\n"
+        respuesta += f"💵 {item['precio_original']} -> *{item['precio_oferta']}*\n"
+        respuesta += f"⏳ Vence en {item['vence_en_horas']}h | Ganas {item['recompensa_xp']} XP\n---\n"
+    return respuesta
 # ====================================================================
 # FASE 2: WEBHOOK DE WHATSAPP (META CLOUD API)
 # ====================================================================
@@ -154,59 +177,169 @@ async def recibir_mensaje_whatsapp(request: Request):
                 
                 # --- MÁQUINA DE ESTADOS DEL BOT ---
                 if "hola" in texto_mensaje or "oferta" in texto_mensaje:
-                    # 1. El cliente saluda, consultamos la base de datos SQL
+                    # 1. El cliente saluda, listamos categorias antes de mostrar ofertas
                     enviar_mensaje_whatsapp(
                         telefono_cliente,
-                        "🤖 *SREPI Bot:*\n¡Hola!⏳ Consultando ofertas."
+                        "🤖 *SREPI Bot:*\n¡Hola! Primero elige una categoria para ver ofertas."
                     )
                     try:
-                        ofertas = consultar_ofertas_disponibles()["ofertas_activas"]
+                        categorias_por_id = obtener_categorias_por_id()
                     except HTTPException as he:
                         if he.status_code == 503:
                             enviar_mensaje_whatsapp(
                                 telefono_cliente,
-                                "⚠️ No pudimos obtener ofertas disponibles en este momento. Intenta de nuevo en unos minutos."
+                                "⚠️ No pudimos obtener las categorias en este momento. Intenta de nuevo en unos minutos."
                             )
                             return {"status": "success"}
                         raise
                     
-                    # --- NUEVA LÓGICA: LIMITAR A TOP 10 ---
-                    top_ofertas = ofertas[:10] 
-                    
-                    respuesta = "🤖 *SREPI Bot:*\n¡Hola! Encontré estas Cajas Sorpresa más urgentes para ti hoy:\n\n"
-                    for item in top_ofertas:
-                        respuesta += f"🟢 Envía *{item['id_lote']}* para rescatar: {item['producto']}\n"
-                        respuesta += f"💵 {item['precio_original']} -> *{item['precio_oferta']}*\n"
-                        respuesta += f"⏳ Vence en {item['vence_en_horas']}h | Ganas {item['recompensa_xp']} XP\n---\n"
-                    
-                    # Si hay más productos, le avisamos al usuario
-                    if len(ofertas) > 10:
-                        respuesta += f"\n*(Hay {len(ofertas) - 10} productos más en riesgo. ¡Escribe el ID para reservar!)*"
-                    
+                    if not categorias_por_id:
+                        enviar_mensaje_whatsapp(
+                            telefono_cliente,
+                            "⚠️ No hay categorias disponibles por ahora."
+                        )
+                        return {"status": "success"}
+
+                    respuesta = "🤖 *SREPI Bot:*\nEstas son las categorias disponibles:\n\n"
+                    for categoria_id, nombre in categorias_por_id.items():
+                        respuesta += f"🟢 *{categoria_id}* - {nombre}\n"
+                    respuesta += "\nResponde con el *numero de la categoria* para ver ofertas."
                     enviar_mensaje_whatsapp(telefono_cliente, respuesta)
+
+                    BOT_ESTADOS[telefono_cliente] = {
+                        "estado": ESTADO_ESPERANDO_CATEGORIA
+                    }
                 
+                elif texto_mensaje == "mas":
+                    estado_actual = BOT_ESTADOS.get(telefono_cliente, {}).get("estado")
+                    if estado_actual != ESTADO_ESPERANDO_MAS:
+                        enviar_mensaje_whatsapp(
+                            telefono_cliente,
+                            "🤖 No tengo mas ofertas pendientes. Escribe *ofertas* para ver categorias."
+                        )
+                        return {"status": "success"}
+
+                    estado_bot = BOT_ESTADOS.get(telefono_cliente, {})
+                    ofertas_filtradas = estado_bot.get("ofertas", [])
+                    offset = int(estado_bot.get("offset", 0))
+
+                    if offset >= len(ofertas_filtradas):
+                        enviar_mensaje_whatsapp(
+                            telefono_cliente,
+                            "🤖 Ya no hay mas ofertas en esta categoria."
+                        )
+                        BOT_ESTADOS[telefono_cliente] = {
+                            "estado": ESTADO_ESPERANDO_LOTE,
+                            "categoria_id": estado_bot.get("categoria_id")
+                        }
+                        return {"status": "success"}
+
+                    siguiente_bloque = ofertas_filtradas[offset:offset + MAX_OFERTAS_POR_MENSAJE]
+                    respuesta_extra = "🤖 *SREPI Bot:*\nAqui hay mas ofertas:\n\n"
+                    respuesta_extra += formatear_ofertas(siguiente_bloque)
+
+                    nuevo_offset = offset + len(siguiente_bloque)
+                    restantes = len(ofertas_filtradas) - nuevo_offset
+                    if restantes > 0:
+                        respuesta_extra += f"\n*(Quedan {restantes} ofertas mas en esta categoria.)*"
+                    enviar_mensaje_whatsapp(telefono_cliente, respuesta_extra)
+
+                    BOT_ESTADOS[telefono_cliente] = {
+                        "estado": ESTADO_ESPERANDO_MAS if restantes > 0 else ESTADO_ESPERANDO_LOTE,
+                        "categoria_id": estado_bot.get("categoria_id"),
+                        "ofertas": ofertas_filtradas,
+                        "offset": nuevo_offset
+                    }
+
                 elif texto_mensaje.isdigit():
-                    # 2. El cliente envía un número (ID de Lote), procesamos la reserva
-                    try:
-                        resultado = confirmar_reserva(int(texto_mensaje), telefono_cliente)
-                    except HTTPException as he:
-                        if he.status_code == 503:
+                    estado_actual = BOT_ESTADOS.get(telefono_cliente, {}).get("estado")
+                    if estado_actual == ESTADO_ESPERANDO_CATEGORIA:
+                        categoria_id = int(texto_mensaje)
+                        try:
+                            categorias_por_id = obtener_categorias_por_id()
+                        except HTTPException as he:
+                            if he.status_code == 503:
+                                enviar_mensaje_whatsapp(
+                                    telefono_cliente,
+                                    "⚠️ No pudimos consultar las categorias en este momento. Intenta de nuevo en unos minutos."
+                                )
+                                return {"status": "success"}
+                            raise
+
+                        if categoria_id not in categorias_por_id:
                             enviar_mensaje_whatsapp(
                                 telefono_cliente,
-                                "⚠️ No pudimos realizar la reserva en este momento. Intenta de nuevo en unos minutos."
+                                "🤖 Categoria no valida. Escribe el numero de una categoria disponible."
                             )
                             return {"status": "success"}
-                        raise
-                    
-                    if "error" in resultado:
-                        enviar_mensaje_whatsapp(telefono_cliente, f"🤖 *Error:* {resultado['error']}")
+
+                        categoria_nombre = categorias_por_id[categoria_id]
+                        enviar_mensaje_whatsapp(
+                            telefono_cliente,
+                            f"🤖 Buscando ofertas para *{categoria_nombre}*..."
+                        )
+
+                        try:
+                            ofertas = consultar_ofertas_disponibles()["ofertas_activas"]
+                        except HTTPException as he:
+                            if he.status_code == 503:
+                                enviar_mensaje_whatsapp(
+                                    telefono_cliente,
+                                    "⚠️ No pudimos obtener ofertas disponibles en este momento. Intenta de nuevo en unos minutos."
+                                )
+                                return {"status": "success"}
+                            raise
+
+                        ofertas_filtradas = filtrar_ofertas_por_categoria(ofertas, categoria_nombre)
+                        if not ofertas_filtradas:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                f"🤖 No hay ofertas activas en la categoria *{categoria_nombre}* por ahora."
+                            )
+                            return {"status": "success"}
+
+                        primer_bloque = ofertas_filtradas[:MAX_OFERTAS_POR_MENSAJE]
+                        respuesta = "🤖 *SREPI Bot:*\nEstas son las ofertas disponibles:\n\n"
+                        respuesta += formatear_ofertas(primer_bloque)
+                        enviar_mensaje_whatsapp(telefono_cliente, respuesta)
+
+                        restantes = len(ofertas_filtradas) - len(primer_bloque)
+                        if restantes > 0:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                "🤖 Escribe *mas* para ver mas ofertas de esta categoria."
+                            )
+
+                        BOT_ESTADOS[telefono_cliente] = {
+                            "estado": ESTADO_ESPERANDO_MAS if restantes > 0 else ESTADO_ESPERANDO_LOTE,
+                            "categoria_id": categoria_id,
+                            "ofertas": ofertas_filtradas,
+                            "offset": len(primer_bloque)
+                        }
                     else:
-                        respuesta_qr = f"✅ *{resultado['mensaje']}*\n{resultado['instrucciones']}\n\n"
-                        respuesta_qr += f"Tu Código de Retiro es:\n```{resultado['codigo_qr_jwt']}```"
-                        enviar_mensaje_whatsapp(telefono_cliente, respuesta_qr)
+                        # 2. El cliente envía un número (ID de Lote), procesamos la reserva
+                        try:
+                            resultado = confirmar_reserva(int(texto_mensaje), telefono_cliente)
+                        except HTTPException as he:
+                            if he.status_code == 503:
+                                enviar_mensaje_whatsapp(
+                                    telefono_cliente,
+                                    "⚠️ No pudimos realizar la reserva en este momento. Intenta de nuevo en unos minutos."
+                                )
+                                return {"status": "success"}
+                            raise
+                        
+                        if "error" in resultado:
+                            enviar_mensaje_whatsapp(telefono_cliente, f"🤖 *Error:* {resultado['error']}")
+                        else:
+                            respuesta_qr = f"✅ *{resultado['mensaje']}*\n{resultado['instrucciones']}\n\n"
+                            respuesta_qr += f"Tu Código de Retiro es:\n```{resultado['codigo_qr_jwt']}```"
+                            enviar_mensaje_whatsapp(telefono_cliente, respuesta_qr)
+                            if telefono_cliente in BOT_ESTADOS:
+                                del BOT_ESTADOS[telefono_cliente]
                 
                 else:
-                    enviar_mensaje_whatsapp(telefono_cliente, "🤖 Escribe *ofertas* para ver el catálogo o el *número* del producto que deseas.")
+                    enviar_mensaje_whatsapp(telefono_cliente, "🤖 Escribe *ofertas* para ver categorias o el *numero* del producto que deseas.")
                     
         return {"status": "success"}
         
