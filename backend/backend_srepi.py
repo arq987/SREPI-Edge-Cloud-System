@@ -167,6 +167,103 @@ class ReservaConfigPayload(BaseModel):
     valor: int
     unidad: str
 
+DEFAULT_DDA_PARAMS = {
+    "dias_roja": 2,
+    "dias_amarilla": 3,
+    "desc_roja": 70.0,
+    "desc_amarilla": 50.0,
+    "desc_verde": 20.0,
+    "xp_roja": 100,
+    "xp_amarilla": 50,
+    "xp_verde": 20,
+    "multiplicador_xp": 1.0
+}
+
+def obtener_params_dda():
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            return dict(DEFAULT_DDA_PARAMS)
+        cursor = conn.cursor()
+        cursor.execute("""
+            SELECT Dias_Roja, Dias_Amarilla, Desc_Roja, Desc_Amarilla, Desc_Verde,
+                   XP_Roja, XP_Amarilla, XP_Verde, Multiplicador_XP
+            FROM DDA_Params_Config WHERE ID_Config = 1
+        """)
+        fila = cursor.fetchone()
+        conn.close()
+        if not fila:
+            return dict(DEFAULT_DDA_PARAMS)
+        return {
+            "dias_roja": int(fila[0]),
+            "dias_amarilla": int(fila[1]),
+            "desc_roja": float(fila[2]),
+            "desc_amarilla": float(fila[3]),
+            "desc_verde": float(fila[4]),
+            "xp_roja": int(fila[5]),
+            "xp_amarilla": int(fila[6]),
+            "xp_verde": int(fila[7]),
+            "multiplicador_xp": float(fila[8])
+        }
+    except Exception:
+        return dict(DEFAULT_DDA_PARAMS)
+
+
+class DDAParamsConfigModel(BaseModel):
+    dias_roja: int = 2
+    dias_amarilla: int = 3
+    desc_roja: float = 70.0
+    desc_amarilla: float = 50.0
+    desc_verde: float = 20.0
+    xp_roja: int = 100
+    xp_amarilla: int = 50
+    xp_verde: int = 20
+    multiplicador_xp: float = 1.0
+
+
+@app.get("/api/dda/params")
+def leer_params_dda():
+    return obtener_params_dda()
+
+
+@app.post("/api/dda/params")
+def guardar_params_dda(payload: DDAParamsConfigModel):
+    try:
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+        cursor.execute("""
+            IF EXISTS (SELECT 1 FROM DDA_Params_Config WHERE ID_Config = 1)
+                UPDATE DDA_Params_Config
+                SET Dias_Roja = %s, Dias_Amarilla = %s,
+                    Desc_Roja = %s, Desc_Amarilla = %s, Desc_Verde = %s,
+                    XP_Roja = %s, XP_Amarilla = %s, XP_Verde = %s,
+                    Multiplicador_XP = %s, Fecha_Actualizacion = SYSUTCDATETIME()
+                WHERE ID_Config = 1
+            ELSE
+                INSERT INTO DDA_Params_Config
+                    (ID_Config, Dias_Roja, Dias_Amarilla, Desc_Roja, Desc_Amarilla, Desc_Verde, XP_Roja, XP_Amarilla, XP_Verde, Multiplicador_XP)
+                VALUES (1, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """, (
+            payload.dias_roja, payload.dias_amarilla,
+            payload.desc_roja, payload.desc_amarilla, payload.desc_verde,
+            payload.xp_roja, payload.xp_amarilla, payload.xp_verde,
+            payload.multiplicador_xp,
+            payload.dias_roja, payload.dias_amarilla,
+            payload.desc_roja, payload.desc_amarilla, payload.desc_verde,
+            payload.xp_roja, payload.xp_amarilla, payload.xp_verde,
+            payload.multiplicador_xp
+        ))
+        conn.commit()
+        conn.close()
+        return {"status": "success"}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error guardando parametros DDA: {str(e)}")
+
+
 @app.get("/api/dda/reserva-config")
 def leer_config_reserva():
     return obtener_config_reserva()
@@ -409,26 +506,36 @@ async def recibir_mensaje_whatsapp(request: Request):
         return {"status": "error"}
 
 # --- MOTOR DDA Y GAMIFICACIÓN ---
-def calcular_dda_y_gamificacion(precio_base, dias, multiplicador_xp):
+def calcular_dda_y_gamificacion(precio_base, dias, multiplicador_xp, params=None):
     """Calcula el descuento según los dias y aplica el multiplicador de la categoría"""
-    if dias <= 2:
-        descuento, xp_base = 0.70, 100  # Zona Roja Crítica
-    elif dias <= 3:
-        descuento, xp_base = 0.50, 50   # Zona Amarilla
+    if params is None:
+        params = DEFAULT_DDA_PARAMS
+    dias_roja = params.get("dias_roja", 2)
+    dias_amarilla = params.get("dias_amarilla", 3)
+    desc_roja = params.get("desc_roja", 70.0) / 100
+    desc_amarilla = params.get("desc_amarilla", 50.0) / 100
+    desc_verde = params.get("desc_verde", 20.0) / 100
+    xp_roja = params.get("xp_roja", 100)
+    xp_amarilla = params.get("xp_amarilla", 50)
+    xp_verde = params.get("xp_verde", 20)
+
+    if dias <= dias_roja:
+        descuento, xp_base = desc_roja, xp_roja
+    elif dias <= dias_amarilla:
+        descuento, xp_base = desc_amarilla, xp_amarilla
     else:
-        descuento, xp_base = 0.20, 20   # Zona Verde/Preventiva
-        
+        descuento, xp_base = desc_verde, xp_verde
+
     precio_final = int(precio_base * (1 - descuento))
-    
-    # Aquí multiplicamos la XP base por el factor que viene de la base de datos
-    xp_total = int(xp_base * multiplicador_xp) 
-    
+    xp_total = int(xp_base * multiplicador_xp)
     return precio_final, xp_total
 
-def clasificar_riesgo_por_dias(dias):
-    if dias <= 2:
+def clasificar_riesgo_por_dias(dias, params=None):
+    if params is None:
+        params = DEFAULT_DDA_PARAMS
+    if dias <= params.get("dias_roja", 2):
         return "roja"
-    if dias <= 3:
+    if dias <= params.get("dias_amarilla", 3):
         return "amarilla"
     return "verde"
 
@@ -442,10 +549,24 @@ def resumen_dashboard_vacio():
 @app.get("/api/dashboard/resumen")
 def obtener_dashboard_resumen():
     try:
+        params = obtener_params_dda()
         conn = obtener_conexion()
         if not conn:
             raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
         cursor = conn.cursor()
+
+        # Contar lotes realmente en riesgo desde Inventario_Lotes
+        cursor.execute("""
+            SELECT DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento)
+            FROM Inventario_Lotes
+            WHERE Cantidad_Disponible > 0
+              AND DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento) >= 0
+        """)
+        riesgo = {"roja": 0, "amarilla": 0, "verde": 0}
+        for fila in cursor.fetchall():
+            dias = int(fila[0])
+            zona = clasificar_riesgo_por_dias(dias, params)
+            riesgo[zona] += 1
 
         cursor.execute("SELECT ID_Transaccion, ID_Lote, Precio_Pagado FROM SREPI_Reservas_Log")
         reservas = cursor.fetchall()
@@ -457,24 +578,15 @@ def obtener_dashboard_resumen():
         dias_por_lote = {int(fila[0]): int(fila[1]) for fila in cursor.fetchall()}
         conn.close()
 
-        if not reservas:
-            return resumen_dashboard_vacio()
-
         reservas_por_transaccion = {}
-        riesgo = {"roja": 0, "amarilla": 0, "verde": 0}
         for fila in reservas:
             id_transaccion = fila[0]
             id_lote = int(fila[1])
             pagado = float(fila[2])
-
             reservas_por_transaccion[id_transaccion] = {
                 "id_lote": id_lote,
                 "pagado": pagado
             }
-
-            dias = dias_por_lote.get(id_lote, 0)
-            categoria = clasificar_riesgo_por_dias(dias)
-            riesgo[categoria] += 1
 
         ventas = {"roja": 0, "amarilla": 0, "verde": 0, "total": 0}
         recaudo = {"roja": 0, "amarilla": 0, "verde": 0, "total": 0}
@@ -485,7 +597,7 @@ def obtener_dashboard_resumen():
                 continue
 
             dias = dias_por_lote.get(reserva["id_lote"], 0)
-            categoria = clasificar_riesgo_por_dias(dias)
+            categoria = clasificar_riesgo_por_dias(dias, params)
 
             ventas[categoria] += 1
             ventas["total"] += 1
@@ -503,12 +615,12 @@ def obtener_dashboard_resumen():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando dashboard: {str(e)}")
 
-# --- ENDPOINT: CATÁLOGO DE OFERTAS ---
 @app.get("/api/ofertas")
 def consultar_ofertas_disponibles():
     ofertas_procesadas = []
     
     try:
+        params = obtener_params_dda()
         conn = obtener_conexion()
         if not conn:
             raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
@@ -530,7 +642,7 @@ def consultar_ofertas_disponibles():
             dias = fila[7]
             
             # Pasamos los datos por el motor DDA
-            precio_descuento, puntos_xp = calcular_dda_y_gamificacion(precio_base, dias, multiplicador_xp)
+            precio_descuento, puntos_xp = calcular_dda_y_gamificacion(precio_base, dias, multiplicador_xp, params)
             
             ofertas_procesadas.append({
                 "id_lote": id_lote,

@@ -36,6 +36,10 @@ const adminViews = document.querySelectorAll('.view');
 const reservaValorInput = document.getElementById('dda-reserva-valor');
 const reservaUnidadSelect = document.getElementById('dda-reserva-unidad');
 const simuladorBtn = document.getElementById('simulador-btn');
+const categoriaTag = document.getElementById('segmento-categoria-actual');
+const productoTag = document.getElementById('segmento-producto-actual');
+const productosTotalTag = document.getElementById('segmento-productos-total');
+const productoDdaList = document.getElementById('producto-dda-list');
 
 const categoriaOverrides = new Map();
 const productoOverrides = new Map();
@@ -91,7 +95,9 @@ async function cargarProductos(categoriaId) {
     }
 
     productos.forEach(prod => {
-        productoOverrides.set(prod.id, Number(prod.descuento || 0));
+        if (!productoOverrides.has(prod.id)) {
+            productoOverrides.set(prod.id, Number(prod.descuento || 0));
+        }
     });
 
     productos.forEach(prod => {
@@ -103,28 +109,127 @@ async function cargarProductos(categoriaId) {
 }
 
 function obtenerCategoriaActual() {
-    if (!categoriaSelect) return null;
-    return categorias.find(categoria => categoria.id === categoriaSelect.value) || null;
+    if (!categoriaSelect || !categoriaSelect.value) return null;
+    const categoriaId = Number(categoriaSelect.value);
+    return categorias.find(categoria => Number(categoria.id) === categoriaId) || null;
 }
 
 function obtenerProductoActual() {
-    if (!productoSelect) return null;
+    if (!productoSelect || !productoSelect.value) return null;
     return productos.find(prod => String(prod.id) === productoSelect.value) || null;
+}
+
+function normalizarDescuentoProducto(valor) {
+    const numero = Number(valor);
+    if (Number.isNaN(numero)) return 0;
+    return Math.max(0, Math.min(40, numero));
+}
+
+function actualizarListadoProductosDda() {
+    if (!productoDdaList) return;
+    productoDdaList.innerHTML = '';
+
+    const categoria = obtenerCategoriaActual();
+    if (!categoria) {
+        productoDdaList.innerHTML = '<p class="producto-dda-empty">Selecciona una categoria para ver sus productos.</p>';
+        if (productosTotalTag) {
+            productosTotalTag.textContent = '0 productos';
+        }
+        return;
+    }
+
+    if (!productos.length) {
+        productoDdaList.innerHTML = '<p class="producto-dda-empty">No hay productos disponibles en esta categoria.</p>';
+        if (productosTotalTag) {
+            productosTotalTag.textContent = '0 productos';
+        }
+        return;
+    }
+
+    const productoSeleccionadoId = productoSelect?.value || '';
+    productos.forEach(prod => {
+        const item = document.createElement('div');
+        item.className = 'producto-dda-item';
+        item.dataset.productoId = String(prod.id);
+        if (String(prod.id) === productoSeleccionadoId) {
+            item.classList.add('is-selected');
+        }
+
+        const boton = document.createElement('button');
+        boton.type = 'button';
+        boton.setAttribute('data-producto-id', String(prod.id));
+
+        const nombre = document.createElement('span');
+        nombre.className = 'producto-dda-name';
+        nombre.textContent = prod.nombre;
+
+        const referencia = document.createElement('span');
+        referencia.className = 'producto-dda-id';
+        referencia.textContent = String(prod.id);
+
+        boton.appendChild(nombre);
+        boton.appendChild(referencia);
+
+        const valorDescuento = normalizarDescuentoProducto(productoOverrides.get(prod.id) ?? prod.descuento ?? 0);
+
+        const sliderWrap = document.createElement('div');
+        sliderWrap.className = 'producto-dda-slider-wrap';
+
+        const sliderValSpan = document.createElement('span');
+        sliderValSpan.className = 'producto-dda-slider-val';
+        sliderValSpan.textContent = `${valorDescuento}%`;
+
+        const input = document.createElement('input');
+        input.type = 'range';
+        input.className = 'producto-dda-input slider-accent';
+        input.min = '0';
+        input.max = '40';
+        input.step = '1';
+        input.value = String(valorDescuento);
+        input.setAttribute('data-producto-id', String(prod.id));
+
+        input.addEventListener('input', () => {
+            sliderValSpan.textContent = `${input.value}%`;
+        });
+
+        sliderWrap.appendChild(sliderValSpan);
+        sliderWrap.appendChild(input);
+
+        item.appendChild(boton);
+        item.appendChild(sliderWrap);
+        productoDdaList.appendChild(item);
+    });
+
+    if (productosTotalTag) {
+        productosTotalTag.textContent = `${productos.length} productos`;
+    }
 }
 
 function sincronizarSegmento() {
     const categoria = obtenerCategoriaActual();
     const producto = obtenerProductoActual();
 
+    if (categoriaTag) {
+        categoriaTag.textContent = categoria?.nombre || 'Sin seleccionar';
+    }
+
+    if (productoTag) {
+        productoTag.textContent = producto?.nombre || 'Sin seleccionar';
+    }
+
     if (categoriaMultiplicadorInput) {
         const valorCategoria = categoriaOverrides.get(categoria?.id) ?? categoria?.multiplicador ?? 1.0;
         categoriaMultiplicadorInput.value = valorCategoria;
+        setText('categoria-multiplicador-val', `${Number(valorCategoria).toFixed(1)}x`);
     }
 
     if (productoDescuentoInput) {
         const valorProducto = productoOverrides.get(producto?.id) ?? producto?.descuento ?? 0;
         productoDescuentoInput.value = valorProducto;
+        setText('producto-descuento-val', `${valorProducto}%`);
     }
+
+    actualizarListadoProductosDda();
 }
 
 function setText(id, value) {
@@ -176,6 +281,11 @@ function calcularVistaRapida() {
     setText('preview-precio-oferta', `$${precioOferta.toLocaleString('es-CO')}`);
     setText('preview-xp', `${xpTotal} XP`);
     setText('preview-zona', zona);
+
+    const card = document.getElementById('resultado-card');
+    if (card) {
+        card.className = 'resultado-card resultado-card-' + zona.toLowerCase();
+    }
 }
 
 function sincronizarChips() {
@@ -184,12 +294,19 @@ function sincronizarChips() {
     setText('dda-desc-roja-val', `${leerNumero('dda-desc-roja')}%`);
     setText('dda-desc-amarilla-val', `${leerNumero('dda-desc-amarilla')}%`);
     setText('dda-desc-verde-val', `${leerNumero('dda-desc-verde')}%`);
+    setText('xp-roja-val', `${leerNumero('xp-roja')}`);
+    setText('xp-amarilla-val', `${leerNumero('xp-amarilla')}`);
+    setText('xp-verde-val', `${leerNumero('xp-verde')}`);
     const multiplicador = leerNumero('xp-multiplicador') || 0;
     setText('xp-multiplicador-val', `${multiplicador.toFixed(1)}x`);
     const unidadReserva = reservaUnidadSelect?.value || 'horas';
     const valorReserva = leerNumero('dda-reserva-valor');
     const etiquetaUnidad = unidadReserva === 'dias' ? 'dias' : 'horas';
     setText('dda-reserva-valor-val', `${valorReserva} ${etiquetaUnidad}`);
+    const catMult = leerNumero('categoria-multiplicador') || 1;
+    setText('categoria-multiplicador-val', `${catMult.toFixed(1)}x`);
+    const prodDesc = leerNumero('producto-descuento');
+    setText('producto-descuento-val', `${prodDesc}%`);
 }
 
 function ajustarReservaRango() {
@@ -295,18 +412,61 @@ adminInputs.forEach(id => {
 });
 
 if (categoriaSelect) {
-    cargarCategorias().then(() => {
+    cargarCategorias().then(async () => {
+        if (categoriaSelect.options.length > 1) {
+            categoriaSelect.selectedIndex = 1;
+            await cargarProductos(categoriaSelect.value);
+            if (productoSelect && productoSelect.options.length > 1) {
+                productoSelect.selectedIndex = 1;
+            }
+        }
         sincronizarSegmento();
+        calcularVistaRapida();
     });
     categoriaSelect.addEventListener('change', async () => {
         await cargarProductos(categoriaSelect.value);
+        if (productoSelect) {
+            productoSelect.value = '';
+        }
         sincronizarSegmento();
+        calcularVistaRapida();
     });
 }
 
 if (productoSelect) {
     productoSelect.addEventListener('change', () => {
         sincronizarSegmento();
+        calcularVistaRapida();
+    });
+}
+
+if (productoDdaList) {
+    productoDdaList.addEventListener('click', event => {
+        const boton = event.target.closest('button[data-producto-id]');
+        if (!boton || !productoSelect) return;
+        productoSelect.value = boton.getAttribute('data-producto-id') || '';
+        sincronizarSegmento();
+        calcularVistaRapida();
+    });
+
+    productoDdaList.addEventListener('input', event => {
+        const input = event.target.closest('input[data-producto-id]');
+        if (!input) return;
+        const productoId = input.getAttribute('data-producto-id') || '';
+        const valor = normalizarDescuentoProducto(input.value);
+        input.value = String(valor);
+
+        const producto = productos.find(item => String(item.id) === productoId);
+        if (producto) {
+            productoOverrides.set(producto.id, valor);
+        }
+
+        if (productoSelect && productoSelect.value === productoId && productoDescuentoInput) {
+            productoDescuentoInput.value = String(valor);
+            setText('producto-descuento-val', `${valor}%`);
+        }
+
+        calcularVistaRapida();
     });
 }
 
@@ -316,6 +476,7 @@ if (categoriaMultiplicadorInput) {
         if (categoria) {
             categoriaOverrides.set(categoria.id, Number(categoriaMultiplicadorInput.value || 1));
         }
+        setText('categoria-multiplicador-val', `${Number(categoriaMultiplicadorInput.value || 1).toFixed(1)}x`);
     });
 }
 
@@ -323,7 +484,11 @@ if (productoDescuentoInput) {
     productoDescuentoInput.addEventListener('input', () => {
         const producto = obtenerProductoActual();
         if (producto) {
-            productoOverrides.set(producto.id, Number(productoDescuentoInput.value || 0));
+            const valor = normalizarDescuentoProducto(productoDescuentoInput.value);
+            productoDescuentoInput.value = String(valor);
+            productoOverrides.set(producto.id, valor);
+            setText('producto-descuento-val', `${valor}%`);
+            sincronizarSegmento();
         }
     });
 }
@@ -362,6 +527,31 @@ if (simuladorBtn) {
 
 cargarDashboard();
 
+async function cargarParamsDDA() {
+    try {
+        const response = await fetch(`${API_BASE}/api/dda/params`, { cache: 'no-store' });
+        if (!response.ok) return;
+        const data = await response.json();
+        const map = {
+            'dda-roja-dias': data.dias_roja,
+            'dda-amarilla-dias': data.dias_amarilla,
+            'dda-desc-roja': data.desc_roja,
+            'dda-desc-amarilla': data.desc_amarilla,
+            'dda-desc-verde': data.desc_verde,
+            'xp-roja': data.xp_roja,
+            'xp-amarilla': data.xp_amarilla,
+            'xp-verde': data.xp_verde,
+            'xp-multiplicador': data.multiplicador_xp
+        };
+        Object.entries(map).forEach(([id, valor]) => {
+            const el = document.getElementById(id);
+            if (el && valor !== undefined) el.value = valor;
+        });
+        sincronizarChips();
+        calcularVistaRapida();
+    } catch (_) {}
+}
+
 async function guardarConfiguracion() {
     if (!guardarBtn) return;
     guardarBtn.disabled = true;
@@ -369,27 +559,50 @@ async function guardarConfiguracion() {
         guardarEstado.textContent = 'Guardando...';
     }
 
-    const categoriasPayload = Array.from(categoriaOverrides.entries()).map(([id, multiplicador]) => ({
-        id,
-        multiplicador
-    }));
+    const categoriasPayload = [];
+    const categoriaActual = obtenerCategoriaActual();
+    if (categoriaActual) {
+        categoriasPayload.push({
+            id: categoriaActual.id,
+            multiplicador: categoriaOverrides.get(categoriaActual.id) ?? categoriaActual.multiplicador
+        });
+    }
 
     const productosPayload = Array.from(productoOverrides.entries()).map(([id, descuento]) => ({
         id,
         descuento
     }));
 
-    try {
-        const response = await fetch(`${API_BASE}/api/dda/config`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                categorias: categoriasPayload,
-                productos: productosPayload
-            })
-        });
+    const paramsPayload = {
+        dias_roja: leerNumero('dda-roja-dias'),
+        dias_amarilla: leerNumero('dda-amarilla-dias'),
+        desc_roja: leerNumero('dda-desc-roja'),
+        desc_amarilla: leerNumero('dda-desc-amarilla'),
+        desc_verde: leerNumero('dda-desc-verde'),
+        xp_roja: leerNumero('xp-roja'),
+        xp_amarilla: leerNumero('xp-amarilla'),
+        xp_verde: leerNumero('xp-verde'),
+        multiplicador_xp: leerNumero('xp-multiplicador') || 1
+    };
 
-        if (!response.ok) {
+    try {
+        const [resConfig, resParams] = await Promise.all([
+            fetch(`${API_BASE}/api/dda/config`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    categorias: categoriasPayload,
+                    productos: productosPayload
+                })
+            }),
+            fetch(`${API_BASE}/api/dda/params`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(paramsPayload)
+            })
+        ]);
+
+        if (!resConfig.ok || !resParams.ok) {
             throw new Error('No se pudo guardar la configuracion');
         }
 
@@ -423,3 +636,4 @@ if (guardarBtn) {
 sincronizarChips();
 sincronizarSegmento();
 cargarConfigReserva();
+cargarParamsDDA();
