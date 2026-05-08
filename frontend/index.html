@@ -4,41 +4,277 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-width=1.0">
     <title>SREPI - Centro de Control</title>
-    <!-- Importamos nuestro CSS -->
     <link rel="stylesheet" href="css/style.css">
-    <!-- Pantalla principal de acceso -->
+    <style>
+        .landing-page {
+            min-height: 100vh;
+            background: linear-gradient(160deg, #f0f7ff 0%, #f8fafc 50%, #f0fdf6 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 60px 24px 80px;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* ── HERO ──────────────────────────────────────── */
+        .landing-hero {
+            text-align: center;
+            max-width: 560px;
+            margin-bottom: 52px;
+        }
+
+        .landing-eyebrow {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            background: rgba(44, 112, 255, 0.1);
+            color: #2c70ff;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            padding: 6px 16px;
+            border-radius: 999px;
+            margin-bottom: 20px;
+        }
+
+        .landing-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(32px, 5vw, 50px);
+            color: #0f172a;
+            line-height: 1.15;
+            margin: 0 0 16px;
+        }
+
+        .landing-title span {
+            color: #2c70ff;
+        }
+
+        .landing-desc {
+            font-size: 16px;
+            color: #64748b;
+            line-height: 1.6;
+            margin: 0;
+        }
+
+        /* ── STATUS BAR ────────────────────────────────── */
+        .landing-status {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 600;
+            color: #059669;
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 8px 18px;
+            border-radius: 999px;
+            margin-top: 20px;
+        }
+
+        .status-live-dot {
+            width: 8px;
+            height: 8px;
+            background: #10b981;
+            border-radius: 50%;
+            animation: pulse-dot 2s ease-in-out infinite;
+        }
+
+        @keyframes pulse-dot {
+            0%, 100% { opacity: 1; transform: scale(1); }
+            50%       { opacity: 0.5; transform: scale(0.85); }
+        }
+
+        /* ── MODULE GRID ────────────────────────────────── */
+        .module-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 20px;
+            width: 100%;
+            max-width: 920px;
+        }
+
+        @media (max-width: 760px) {
+            .module-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 480px) {
+            .module-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── MODULE CARD ────────────────────────────────── */
+        .module-card {
+            background: #fff;
+            border-radius: 16px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 24px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            text-decoration: none;
+            color: inherit;
+            box-shadow: 0 2px 12px rgba(15, 23, 42, 0.06);
+            transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .module-card::before {
+            content: '';
+            position: absolute;
+            top: 0; left: 0; right: 0;
+            height: 3px;
+            background: var(--card-accent, #2c70ff);
+            border-radius: 16px 16px 0 0;
+        }
+
+        .module-card:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 12px 30px rgba(15, 23, 42, 0.12);
+            border-color: rgba(44, 112, 255, 0.2);
+        }
+
+        .module-card-icon {
+            width: 44px;
+            height: 44px;
+            border-radius: 12px;
+            background: var(--card-icon-bg, rgba(44, 112, 255, 0.1));
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 22px;
+        }
+
+        .module-card-eyebrow {
+            font-size: 10px;
+            font-weight: 700;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+            color: var(--card-accent, #2c70ff);
+            margin: 0;
+        }
+
+        .module-card-title {
+            font-size: 17px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 2px 0 0;
+            line-height: 1.3;
+        }
+
+        .module-card-desc {
+            font-size: 13px;
+            color: #64748b;
+            line-height: 1.5;
+            margin: 0;
+            flex: 1;
+        }
+
+        .module-card-cta {
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--card-accent, #2c70ff);
+            margin-top: 4px;
+        }
+
+        .module-card-cta::after {
+            content: '→';
+            font-size: 14px;
+        }
+
+        /* Card variants */
+        .card-blue   { --card-accent: #2c70ff; --card-icon-bg: rgba(44,112,255,0.1); }
+        .card-green  { --card-accent: #10b981; --card-icon-bg: rgba(16,185,129,0.1); }
+        .card-orange { --card-accent: #f59e0b; --card-icon-bg: rgba(245,158,11,0.1); }
+        .card-violet { --card-accent: #8b5cf6; --card-icon-bg: rgba(139,92,246,0.1); }
+        .card-teal   { --card-accent: #0891b2; --card-icon-bg: rgba(8,145,178,0.1); }
+
+        /* ── FOOTER ─────────────────────────────────────── */
+        .landing-footer {
+            margin-top: 52px;
+            font-size: 12px;
+            color: #94a3b8;
+            text-align: center;
+        }
+    </style>
 </head>
-<body>
+<body class="landing-page">
 
-    <div class="page">
-        <header class="hero">
-            <div class="hero-text">
-                <p class="eyebrow">SREPI Control Center</p>
-                <h1>SREPI - Centro de Control</h1>
-                <p class="hero-sub">Selecciona el modulo que deseas abrir.</p>
-            </div>
-        </header>
-
-        <main class="landing">
-            <div class="landing-grid">
-                <a class="link-card" href="./views/kiosco.html">
-                    <div>
-                        <p class="link-eyebrow">Modulo</p>
-                        <h2>Punto Express (Kiosco)</h2>
-                        <p class="descripcion">Escaneo QR, validacion y entrega de productos.</p>
-                    </div>
-                    <span class="link-cta">Abrir kiosco</span>
-                </a>
-                <a class="link-card" href="./views/admin.html">
-                    <div>
-                        <p class="link-eyebrow">Administracion</p>
-                        <h2>Panel DDA y Gamificacion</h2>
-                        <p class="descripcion">Ajusta umbrales, descuentos y XP base.</p>
-                    </div>
-                    <span class="link-cta">Abrir panel</span>
-                </a>
-            </div>
-        </main>
+    <div class="landing-hero">
+        <span class="landing-eyebrow">
+            <span>✦</span> Sistema de Reduccion de Excedentes
+        </span>
+        <h1 class="landing-title">
+            Bienvenido a <span>SREPI</span>
+        </h1>
+        <p class="landing-desc">
+            Plataforma de gestion inteligente para reducir perdidas de inventario
+            a traves del algoritmo de descuento dinamico y gamificacion.
+        </p>
+        <span class="landing-status">
+            <span class="status-live-dot"></span>
+            Motor DDA: En ejecucion
+        </span>
     </div>
+
+    <div class="module-grid">
+
+        <a class="module-card card-blue" href="./views/kiosco.html">
+            <div class="module-card-icon">📱</div>
+            <div>
+                <p class="module-card-eyebrow">Operacion</p>
+                <p class="module-card-title">Punto Express</p>
+            </div>
+            <p class="module-card-desc">Escaneo QR, validacion de tokens JWT y entrega de productos rescatados.</p>
+            <span class="module-card-cta">Abrir kiosco</span>
+        </a>
+
+        <a class="module-card card-orange" href="./views/admin.html">
+            <div class="module-card-icon">⚙️</div>
+            <div>
+                <p class="module-card-eyebrow">Administracion</p>
+                <p class="module-card-title">Motor DDA</p>
+            </div>
+            <p class="module-card-desc">Configura umbrales de zona, descuentos, XP base y simula el impacto en tiempo real.</p>
+            <span class="module-card-cta">Abrir panel</span>
+        </a>
+
+        <a class="module-card card-violet" href="./views/dashboard.html">
+            <div class="module-card-icon">📊</div>
+            <div>
+                <p class="module-card-eyebrow">Metricas</p>
+                <p class="module-card-title">Dashboard de Operacion</p>
+            </div>
+            <p class="module-card-desc">Recaudo, desperdicio evitado, retiros del dia y ultimas transacciones de rescate.</p>
+            <span class="module-card-cta">Ver dashboard</span>
+        </a>
+
+        <a class="module-card card-green" href="./views/inventario.html">
+            <div class="module-card-icon">📦</div>
+            <div>
+                <p class="module-card-eyebrow">Control</p>
+                <p class="module-card-title">Inventario y Lotes</p>
+            </div>
+            <p class="module-card-desc">Estado de todos los lotes activos, zona de riesgo, stock disponible y fechas de vencimiento.</p>
+            <span class="module-card-cta">Ver inventario</span>
+        </a>
+
+        <a class="module-card card-teal" href="./views/red.html">
+            <div class="module-card-icon">🧭</div>
+            <div>
+                <p class="module-card-eyebrow">Infraestructura</p>
+                <p class="module-card-title">Red de Supermercado</p>
+            </div>
+            <p class="module-card-desc">Monitoreo de kioscos Edge, estado de sincronizacion y logs de conectividad por sede.</p>
+            <span class="module-card-cta">Ver red</span>
+        </a>
+
+    </div>
+
+    <p class="landing-footer">SREPI v1.0 — Proyecto de Ingenieria — UNAD 2026</p>
+
 </body>
 </html>

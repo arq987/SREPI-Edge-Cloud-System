@@ -6,34 +6,227 @@
     <title>SREPI - Punto Express</title>
     <link rel="stylesheet" href="../css/style.css">
     <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        /* ── KIOSCO PAGE ──────────────────────────────── */
+        body.kiosco-page {
+            min-height: 100vh;
+            background: linear-gradient(160deg, #f0f7ff 0%, #f8fafc 50%, #f0fdf6 100%);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 40px 20px 60px;
+            font-family: 'Space Grotesk', sans-serif;
+        }
+
+        /* ── HEADER ───────────────────────────────────── */
+        .kiosco-header {
+            width: 100%;
+            max-width: 560px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+
+        .kiosco-brand {
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            color: #94a3b8;
+        }
+
+        .kiosco-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: clamp(26px, 5vw, 36px);
+            color: #0f172a;
+            margin: 0;
+            text-align: center;
+            line-height: 1.2;
+        }
+
+        .kiosco-sub {
+            font-size: 14px;
+            color: #64748b;
+            margin: 0;
+            text-align: center;
+        }
+
+        /* ── BADGE DE ESTADO ──────────────────────────── */
+        .badge-edge {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 20px;
+            border-radius: 999px;
+            letter-spacing: 0.02em;
+            transition: background 0.3s ease, color 0.3s ease;
+        }
+
+        .badge-online {
+            background: rgba(16, 185, 129, 0.12);
+            color: #065f46;
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        .badge-offline {
+            background: rgba(239, 68, 68, 0.1);
+            color: #991b1b;
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        /* ── SCANNER CARD ─────────────────────────────── */
+        .kiosco-card {
+            width: 100%;
+            max-width: 560px;
+            background: #fff;
+            border-radius: 18px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            box-shadow: 0 4px 24px rgba(15, 23, 42, 0.08);
+            padding: 28px 28px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 18px;
+        }
+
+        .scanner-hint {
+            font-size: 13px;
+            color: #64748b;
+            text-align: center;
+            margin: 0;
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 12px;
+            overflow: hidden;
+        }
+
+        /* ── RESULTADO ────────────────────────────────── */
+        #resultado {
+            display: none;
+            width: 100%;
+            border-radius: 12px;
+            padding: 20px 22px;
+            font-size: 14px;
+            line-height: 1.6;
+            box-sizing: border-box;
+        }
+
+        #resultado.success {
+            background: rgba(16, 185, 129, 0.08);
+            border: 1px solid rgba(16, 185, 129, 0.3);
+        }
+
+        #resultado.error {
+            background: rgba(239, 68, 68, 0.07);
+            border: 1px solid rgba(239, 68, 68, 0.25);
+        }
+
+        #resultado.warning {
+            background: rgba(245, 158, 11, 0.08);
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        #resultado h3 {
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            margin: 0 0 10px;
+        }
+
+        #resultado p {
+            margin: 4px 0;
+            color: #334155;
+        }
+
+        #resultado hr {
+            border: 0;
+            border-top: 1px solid rgba(15, 23, 42, 0.1);
+            margin: 12px 0;
+        }
+
+        #resultado .datos p {
+            font-size: 14px;
+            color: #334155;
+            margin: 5px 0;
+        }
+
+        /* ── BOTÓN SIGUIENTE ──────────────────────────── */
+        .btn-recargar {
+            display: block;
+            width: 100%;
+            margin-top: 14px;
+            padding: 11px 20px;
+            background: #2c70ff;
+            color: #fff;
+            border: none;
+            border-radius: 10px;
+            font-family: 'Space Grotesk', sans-serif;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s ease;
+        }
+
+        .btn-recargar:hover { background: #1d4ed8; }
+
+        /* ── NAV INFERIOR ─────────────────────────────── */
+        .kiosco-nav {
+            margin-top: 24px;
+            display: flex;
+            gap: 12px;
+            align-items: center;
+        }
+
+        .kiosco-nav a {
+            font-size: 13px;
+            font-weight: 600;
+            color: #64748b;
+            text-decoration: none;
+            padding: 7px 16px;
+            border-radius: 8px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            background: #fff;
+            transition: all 0.15s ease;
+        }
+
+        .kiosco-nav a:hover {
+            background: #f1f5f9;
+            color: #0f172a;
+        }
+
+        .kiosco-nav a.nav-active {
+            background: rgba(44, 112, 255, 0.1);
+            color: #2c70ff;
+            border-color: rgba(44, 112, 255, 0.25);
+        }
+    </style>
 </head>
-<body>
-    <div class="page">
-        <header class="hero">
-            <div class="hero-text">
-                <p class="eyebrow">SREPI Control Center</p>
-                <h1>Punto Express SREPI</h1>
-                <p class="hero-sub">Escanea el QR para validar el retiro.</p>
-            </div>
-            <div class="hero-actions">
-                <a class="btn-secundario" href="../index.html">Volver al inicio</a>
-                <a class="tab-btn is-active" href="./kiosco.html">Kiosco</a>
-                <a class="tab-btn" href="./admin.html">Admin DDA</a>
-            </div>
-        </header>
+<body class="kiosco-page">
 
-        <main class="views">
-            <section class="view view-active">
-                <div class="contenedor card">
-                    <span id="badge-estado" class="badge-edge badge-online">🟢 CONECTADO (ONLINE)</span>
-                    <p class="descripcion">Acerca el Codigo QR a la camara para procesar el retiro.</p>
+    <header class="kiosco-header">
+        <span class="kiosco-brand">SREPI — Punto Express</span>
+        <h1 class="kiosco-title">Validador de Retiros</h1>
+        <p class="kiosco-sub">Acerca el codigo QR a la camara para autorizar el retiro del producto.</p>
+        <span id="badge-estado" class="badge-edge badge-online">🟢 CONECTADO (ONLINE)</span>
+    </header>
 
-                    <div id="reader"></div>
-                    <div id="resultado"></div>
-                </div>
-            </section>
-        </main>
+    <div class="kiosco-card">
+        <p class="scanner-hint">Posiciona el codigo QR frente a la camara</p>
+        <div id="reader"></div>
+        <div id="resultado"></div>
     </div>
+
+    <nav class="kiosco-nav">
+        <a href="../index.html">← Inicio</a>
+        <a href="./kiosco.html" class="nav-active">Kiosco</a>
+        <a href="./admin.html">Admin DDA</a>
+    </nav>
 
     <script src="../js/kiosco.js" defer></script>
 </body>

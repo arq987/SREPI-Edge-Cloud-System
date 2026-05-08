@@ -1,0 +1,557 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>SREPI - Inventario y Lotes</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        /* ── INVENTARIO PAGE ─────────────────────────────── */
+        .inv-main {
+            flex: 1;
+            padding: 32px 36px 60px;
+            overflow-y: auto;
+            display: flex;
+            flex-direction: column;
+            gap: 24px;
+        }
+
+        /* Topbar */
+        .inv-topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 16px;
+        }
+
+        .inv-title {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 4px;
+        }
+
+        .inv-sub {
+            font-size: 13px;
+            color: #64748b;
+            margin: 0;
+        }
+
+        .inv-topbar-actions {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        /* KPI strip */
+        .inv-kpi-strip {
+            display: grid;
+            grid-template-columns: repeat(6, minmax(0, 1fr));
+            gap: 14px;
+        }
+
+        .inv-kpi {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            padding: 14px 16px;
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .inv-kpi-label {
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            color: #64748b;
+            font-weight: 600;
+        }
+
+        .inv-kpi-value {
+            font-size: 26px;
+            font-weight: 700;
+            color: #0f172a;
+            line-height: 1;
+        }
+
+        .inv-kpi-value.val-roja     { color: #dc2626; }
+        .inv-kpi-value.val-amarilla { color: #d97706; }
+        .inv-kpi-value.val-verde    { color: #059669; }
+        .inv-kpi-value.val-muted    { color: #94a3b8; }
+
+        .inv-kpi-accent {
+            height: 3px;
+            border-radius: 999px;
+            margin-top: 4px;
+        }
+
+        .accent-blue    { background: #2c70ff; }
+        .accent-roja    { background: #ef4444; }
+        .accent-amarilla{ background: #f59e0b; }
+        .accent-verde   { background: #10b981; }
+        .accent-gray    { background: #94a3b8; }
+
+        /* Toolbar de filtros */
+        .inv-toolbar {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            flex-wrap: wrap;
+            background: #fff;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            border-radius: 12px;
+            padding: 14px 18px;
+        }
+
+        .inv-search-wrap {
+            position: relative;
+            flex: 1;
+            min-width: 200px;
+        }
+
+        .inv-search-icon {
+            position: absolute;
+            left: 10px;
+            top: 50%;
+            transform: translateY(-50%);
+            color: #94a3b8;
+            font-size: 14px;
+            pointer-events: none;
+        }
+
+        #inv-search {
+            width: 100%;
+            padding: 8px 12px 8px 32px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #0f172a;
+            background: #f8fafc;
+            box-sizing: border-box;
+        }
+
+        #inv-search:focus {
+            outline: none;
+            border-color: #2c70ff;
+            background: #fff;
+            box-shadow: 0 0 0 3px rgba(44, 112, 255, 0.1);
+        }
+
+        .zona-filter-group {
+            display: flex;
+            gap: 6px;
+        }
+
+        .zona-filter-btn {
+            padding: 7px 14px;
+            border-radius: 8px;
+            font-size: 12px;
+            font-weight: 600;
+            border: 1px solid transparent;
+            cursor: pointer;
+            background: #f1f5f9;
+            color: #475569;
+            transition: all 0.15s ease;
+        }
+
+        .zona-filter-btn:hover { background: #e2e8f0; }
+
+        .zona-filter-btn[data-zona="todos"].is-active {
+            background: rgba(44, 112, 255, 0.12);
+            color: #1d4ed8;
+            border-color: rgba(44, 112, 255, 0.3);
+        }
+
+        .zona-filter-btn[data-zona="roja"].is-active {
+            background: rgba(239, 68, 68, 0.1);
+            color: #dc2626;
+            border-color: rgba(239, 68, 68, 0.3);
+        }
+
+        .zona-filter-btn[data-zona="amarilla"].is-active {
+            background: rgba(245, 158, 11, 0.1);
+            color: #b45309;
+            border-color: rgba(245, 158, 11, 0.3);
+        }
+
+        .zona-filter-btn[data-zona="verde"].is-active {
+            background: rgba(16, 185, 129, 0.1);
+            color: #065f46;
+            border-color: rgba(16, 185, 129, 0.3);
+        }
+
+        #inv-cat-select {
+            padding: 8px 12px;
+            border: 1px solid rgba(15, 23, 42, 0.12);
+            border-radius: 8px;
+            font-size: 13px;
+            color: #0f172a;
+            background: #f8fafc;
+            cursor: pointer;
+        }
+
+        #inv-cat-select:focus { outline: none; border-color: #2c70ff; }
+
+        .inv-toggle-label {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 12px;
+            color: #64748b;
+            cursor: pointer;
+            white-space: nowrap;
+        }
+
+        .inv-toolbar-right {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-left: auto;
+        }
+
+        /* Tabla */
+        .inv-table-wrap {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid rgba(15, 23, 42, 0.08);
+            overflow: hidden;
+        }
+
+        .inv-table-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 20px 12px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.06);
+        }
+
+        .inv-table-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        #inv-count {
+            font-size: 12px;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 3px 10px;
+            border-radius: 999px;
+        }
+
+        .inv-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .inv-table thead th {
+            background: #f8fafc;
+            color: #475569;
+            font-size: 11px;
+            text-transform: uppercase;
+            letter-spacing: 0.06em;
+            font-weight: 600;
+            padding: 10px 14px;
+            text-align: left;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.07);
+        }
+
+        .inv-row td {
+            padding: 11px 14px;
+            border-bottom: 1px solid rgba(15, 23, 42, 0.05);
+            font-size: 13px;
+            vertical-align: middle;
+        }
+
+        .inv-row:last-child td { border-bottom: none; }
+        .inv-row:hover td { background: #f8fafc; }
+
+        .inv-row-roja td:first-child {
+            border-left: 3px solid #ef4444;
+        }
+
+        .inv-row-amarilla td:first-child {
+            border-left: 3px solid #f59e0b;
+        }
+
+        .inv-row-verde td:first-child {
+            border-left: 3px solid #10b981;
+        }
+
+        .inv-row-vencido td:first-child {
+            border-left: 3px solid #94a3b8;
+        }
+
+        .inv-row-vencido td { opacity: 0.65; }
+
+        .inv-td-id {
+            font-size: 12px;
+            font-weight: 700;
+            color: #94a3b8;
+        }
+
+        .inv-prod-name {
+            display: block;
+            font-weight: 600;
+            color: #0f172a;
+        }
+
+        .inv-sku {
+            display: block;
+            font-size: 11px;
+            color: #94a3b8;
+            margin-top: 2px;
+        }
+
+        .inv-cat {
+            font-size: 12px;
+            color: #475569;
+        }
+
+        .inv-precio { font-weight: 600; color: #0f172a; }
+        .inv-fecha  { font-size: 12px; color: #475569; }
+        .inv-kg     { font-size: 12px; color: #64748b; }
+
+        /* Stock bar */
+        .stock-wrap {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .stock-num {
+            font-size: 13px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .stock-total {
+            font-size: 11px;
+            font-weight: 400;
+            color: #94a3b8;
+        }
+
+        .stock-bar-track {
+            height: 5px;
+            background: #e2e8f0;
+            border-radius: 999px;
+            overflow: hidden;
+            width: 80px;
+        }
+
+        .stock-bar {
+            height: 100%;
+            border-radius: 999px;
+            transition: width 0.4s ease;
+        }
+
+        .stock-bar-ok  { background: #10b981; }
+        .stock-bar-mid { background: #f59e0b; }
+        .stock-bar-low { background: #ef4444; }
+
+        /* Badges de zona */
+        .inv-badge {
+            display: inline-block;
+            font-size: 10px;
+            font-weight: 700;
+            padding: 3px 8px;
+            border-radius: 999px;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+        }
+
+        .badge-zona-roja     { background: rgba(239,68,68,0.1);    color: #dc2626; }
+        .badge-zona-amarilla { background: rgba(245,158,11,0.1);   color: #b45309; }
+        .badge-zona-verde    { background: rgba(16,185,129,0.1);   color: #065f46; }
+        .badge-zona-vencido  { background: rgba(148,163,184,0.15); color: #475569; }
+
+        .dias-chip {
+            display: inline-block;
+            font-size: 11px;
+            font-weight: 600;
+            padding: 2px 7px;
+            border-radius: 6px;
+            margin-left: 5px;
+        }
+
+        .dias-roja     { background: rgba(239,68,68,0.08);    color: #ef4444; }
+        .dias-amarilla { background: rgba(245,158,11,0.1);   color: #d97706; }
+        .dias-verde    { background: rgba(16,185,129,0.08);  color: #10b981; }
+        .dias-vencido  { background: rgba(148,163,184,0.15); color: #94a3b8; }
+
+        /* Empty state */
+        .inv-empty {
+            text-align: center;
+            color: #94a3b8;
+            padding: 40px 20px;
+            font-size: 14px;
+        }
+
+        /* Estado */
+        #inv-estado {
+            font-size: 12px;
+            color: #64748b;
+        }
+
+        /* Botones */
+        .btn-inv-primary {
+            background: #2c70ff;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            padding: 9px 18px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-inv-primary:hover { background: #1d4ed8; }
+
+        .btn-inv-ghost {
+            background: rgba(44, 112, 255, 0.08);
+            color: #2c70ff;
+            border: 1px solid rgba(44, 112, 255, 0.2);
+            border-radius: 8px;
+            padding: 8px 16px;
+            font-size: 13px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-inv-ghost:hover { background: rgba(44, 112, 255, 0.14); }
+
+        /* Responsive */
+        @media (max-width: 900px) {
+            .inv-kpi-strip { grid-template-columns: repeat(3, 1fr); }
+        }
+
+        @media (max-width: 600px) {
+            .inv-kpi-strip { grid-template-columns: repeat(2, 1fr); }
+            .inv-main { padding: 20px 16px 40px; }
+        }
+    </style>
+</head>
+<body class="admin-page">
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="sidebar-brand">SREPI Admin</div>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="../index.html">🏠 Inicio</a>
+                <a class="sidebar-link is-active" href="./inventario.html">📦 Inventario y Lotes</a>
+                <a class="sidebar-link" href="./admin.html">⚙️ Motor DDA</a>
+                <a class="sidebar-link" href="./dashboard.html">📊 Metricas de Operacion</a>
+                <a class="sidebar-link" href="./red.html">🧭 Red de Supermercado</a>
+            </nav>
+        </aside>
+
+        <main class="inv-main">
+
+            <!-- TOPBAR -->
+            <div class="inv-topbar">
+                <div>
+                    <p class="inv-title">Inventario y Lotes</p>
+                    <p class="inv-sub">Consulta el estado actual de todos los lotes, su zona de riesgo y stock disponible.</p>
+                </div>
+                <div class="inv-topbar-actions">
+                    <span id="inv-estado">Cargando...</span>
+                    <button class="btn-inv-ghost" id="inv-refresh">Actualizar</button>
+                </div>
+            </div>
+
+            <!-- KPI STRIP -->
+            <div class="inv-kpi-strip">
+                <div class="inv-kpi">
+                    <span class="inv-kpi-label">Total lotes activos</span>
+                    <span class="inv-kpi-value" id="kpi-total-lotes">-</span>
+                    <div class="inv-kpi-accent accent-blue"></div>
+                </div>
+                <div class="inv-kpi">
+                    <span class="inv-kpi-label">Unidades disponibles</span>
+                    <span class="inv-kpi-value" id="kpi-total-unidades">-</span>
+                    <div class="inv-kpi-accent accent-blue"></div>
+                </div>
+                <div class="inv-kpi">
+                    <span class="inv-kpi-label">Zona Roja</span>
+                    <span class="inv-kpi-value val-roja" id="kpi-zona-roja">-</span>
+                    <div class="inv-kpi-accent accent-roja"></div>
+                </div>
+                <div class="inv-kpi">
+                    <span class="inv-kpi-label">Zona Amarilla</span>
+                    <span class="inv-kpi-value val-amarilla" id="kpi-zona-amarilla">-</span>
+                    <div class="inv-kpi-accent accent-amarilla"></div>
+                </div>
+                <div class="inv-kpi">
+                    <span class="inv-kpi-label">Zona Verde</span>
+                    <span class="inv-kpi-value val-verde" id="kpi-zona-verde">-</span>
+                    <div class="inv-kpi-accent accent-verde"></div>
+                </div>
+                <div class="inv-kpi">
+                    <span class="inv-kpi-label">Lotes vencidos</span>
+                    <span class="inv-kpi-value val-muted" id="kpi-vencidos">-</span>
+                    <div class="inv-kpi-accent accent-gray"></div>
+                </div>
+            </div>
+
+            <!-- TOOLBAR -->
+            <div class="inv-toolbar">
+                <div class="inv-search-wrap">
+                    <span class="inv-search-icon">🔍</span>
+                    <input type="search" id="inv-search" placeholder="Buscar por producto, SKU o categoria...">
+                </div>
+
+                <div class="zona-filter-group">
+                    <button class="zona-filter-btn is-active" data-zona="todos">Todos</button>
+                    <button class="zona-filter-btn" data-zona="roja">🔴 Roja</button>
+                    <button class="zona-filter-btn" data-zona="amarilla">🟡 Amarilla</button>
+                    <button class="zona-filter-btn" data-zona="verde">🟢 Verde</button>
+                </div>
+
+                <select id="inv-cat-select">
+                    <option value="">Todas las categorias</option>
+                </select>
+
+                <div class="inv-toolbar-right">
+                    <label class="inv-toggle-label">
+                        <input type="checkbox" id="inv-vencidos-toggle">
+                        Incluir vencidos
+                    </label>
+                </div>
+            </div>
+
+            <!-- TABLA -->
+            <div class="inv-table-wrap">
+                <div class="inv-table-header">
+                    <h3 class="inv-table-title">Lotes de Inventario</h3>
+                    <span id="inv-count">Cargando...</span>
+                </div>
+                <table class="inv-table">
+                    <thead>
+                        <tr>
+                            <th>Lote</th>
+                            <th>Producto</th>
+                            <th>Categoria</th>
+                            <th>Stock</th>
+                            <th>Precio Base</th>
+                            <th>Vencimiento</th>
+                            <th>Zona / Dias</th>
+                            <th>Peso</th>
+                        </tr>
+                    </thead>
+                    <tbody id="inv-tbody">
+                        <tr>
+                            <td colspan="8" class="inv-empty">Cargando lotes...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+        </main>
+    </div>
+
+    <script src="../js/inventario.js" defer></script>
+</body>
+</html>

@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>SREPI - Red de Supermercado</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <style>
+        .red-main {
+            flex: 1;
+            padding: 32px 36px 60px;
+            overflow-y: auto;
+        }
+
+        .red-topbar {
+            display: flex;
+            align-items: flex-start;
+            justify-content: space-between;
+            gap: 20px;
+            margin-bottom: 8px;
+        }
+
+        .red-title {
+            font-size: 22px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0;
+        }
+
+        .red-sub {
+            font-size: 13px;
+            color: #64748b;
+            margin: 10px 0 28px;
+        }
+
+        .system-badge-online {
+            display: inline-flex;
+            align-items: center;
+            gap: 7px;
+            background: #22c55e;
+            color: #fff;
+            font-size: 13px;
+            font-weight: 700;
+            padding: 8px 18px;
+            border-radius: 999px;
+            white-space: nowrap;
+            flex-shrink: 0;
+        }
+
+        /* ── GRID DE KIOSCOS ──────────────────────────── */
+        .kiosk-grid {
+            display: grid;
+            grid-template-columns: repeat(3, minmax(0, 1fr));
+            gap: 22px;
+        }
+
+        @media (max-width: 900px) {
+            .kiosk-grid { grid-template-columns: repeat(2, 1fr); }
+        }
+
+        @media (max-width: 600px) {
+            .kiosk-grid { grid-template-columns: 1fr; }
+        }
+
+        /* ── CARD ──────────────────────────────────────── */
+        .kiosk-card {
+            background: #fff;
+            border-radius: 14px;
+            border: 1px solid rgba(15, 23, 42, 0.1);
+            border-top: 4px solid #10b981;
+            box-shadow: 0 2px 10px rgba(15, 23, 42, 0.06);
+            padding: 22px 22px 18px;
+            display: flex;
+            flex-direction: column;
+            gap: 0;
+        }
+
+        .kiosk-card.offline {
+            border-top-color: #ef4444;
+        }
+
+        .kiosk-card-name {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+            margin: 0 0 16px;
+            display: flex;
+            align-items: flex-start;
+            gap: 6px;
+        }
+
+        .kiosk-card-name .pin {
+            font-size: 18px;
+            line-height: 1.2;
+            flex-shrink: 0;
+        }
+
+        .kiosk-divider {
+            height: 1px;
+            background: rgba(15, 23, 42, 0.08);
+            margin-bottom: 14px;
+        }
+
+        .kiosk-info-list {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            flex: 1;
+            margin-bottom: 18px;
+        }
+
+        .kiosk-info-row {
+            font-size: 14px;
+            color: #334155;
+            line-height: 1.4;
+        }
+
+        .kiosk-info-row strong {
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .status-dot {
+            display: inline-block;
+            width: 9px;
+            height: 9px;
+            border-radius: 50%;
+            margin-right: 5px;
+            vertical-align: middle;
+        }
+
+        .dot-online  { background: #22c55e; }
+        .dot-offline { background: #ef4444; }
+
+        .status-online  { color: #22c55e; font-weight: 600; }
+        .status-offline { color: #ef4444; font-weight: 600; }
+
+        .value-warn { color: #f59e0b; font-weight: 700; }
+
+        /* ── BOTONES ───────────────────────────────────── */
+        .btn-ver-logs {
+            width: 100%;
+            padding: 10px;
+            background: #f1f5f9;
+            color: #334155;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-ver-logs:hover { background: #e2e8f0; }
+
+        .btn-forzar-ping {
+            width: 100%;
+            padding: 11px;
+            background: #ef4444;
+            color: #fff;
+            border: none;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+
+        .btn-forzar-ping:hover { background: #dc2626; }
+    </style>
+</head>
+<body class="admin-page">
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="sidebar-brand">SREPI Admin</div>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="../index.html">🏠 Inicio</a>
+                <a class="sidebar-link" href="./inventario.html">📦 Inventario y Lotes</a>
+                <a class="sidebar-link" href="./admin.html">⚙️ Motor DDA</a>
+                <a class="sidebar-link" href="./dashboard.html">📊 Metricas de Operacion</a>
+                <a class="sidebar-link is-active" href="./red.html">🧭 Red de Supermercado</a>
+            </nav>
+        </aside>
+
+        <main class="red-main">
+
+            <div class="red-topbar">
+                <h1 class="red-title">Monitoreo de Infraestructura Edge</h1>
+                <span class="system-badge-online">Sistema de Sincronizacion: ONLINE</span>
+            </div>
+            <p class="red-sub">Estado de conectividad de los Kioscos SREPI en los puntos fisicos de venta.</p>
+
+            <div class="kiosk-grid">
+
+                <!-- Sede Norte — Online -->
+                <div class="kiosk-card">
+                    <p class="kiosk-card-name">
+                        <span class="pin">📍</span>
+                        Sede Norte - Caja Rapida 1
+                    </p>
+                    <div class="kiosk-divider"></div>
+                    <div class="kiosk-info-list">
+                        <div class="kiosk-info-row">
+                            <strong>Estado:</strong>
+                            <span class="status-dot dot-online"></span>
+                            <span class="status-online">Online</span>
+                        </div>
+                        <div class="kiosk-info-row">
+                            <strong>Ultima Sincronizacion:</strong> Hace 2 min
+                        </div>
+                        <div class="kiosk-info-row">
+                            <strong>Registros Locales (Edge):</strong> 0 Pendientes
+                        </div>
+                    </div>
+                    <button class="btn-ver-logs">Ver Logs</button>
+                </div>
+
+                <!-- Sede Centro — Offline -->
+                <div class="kiosk-card offline">
+                    <p class="kiosk-card-name">
+                        <span class="pin">📍</span>
+                        Sede Centro - Kiosco Principal
+                    </p>
+                    <div class="kiosk-divider"></div>
+                    <div class="kiosk-info-list">
+                        <div class="kiosk-info-row">
+                            <strong>Estado:</strong>
+                            <span class="status-dot dot-offline"></span>
+                            <span class="status-offline">Offline (Modo Edge)</span>
+                        </div>
+                        <div class="kiosk-info-row">
+                            <strong>Ultima Sincronizacion:</strong>
+                            <span class="value-warn">Hace 4 horas</span>
+                        </div>
+                        <div class="kiosk-info-row">
+                            <strong>Registros Locales (Edge):</strong>
+                            <span class="value-warn">14 Pendientes</span>
+                        </div>
+                    </div>
+                    <button class="btn-forzar-ping">Forzar Ping</button>
+                </div>
+
+                <!-- Sede Sur — Online -->
+                <div class="kiosk-card">
+                    <p class="kiosk-card-name">
+                        <span class="pin">📍</span>
+                        Sede Sur - Kiosco Express
+                    </p>
+                    <div class="kiosk-divider"></div>
+                    <div class="kiosk-info-list">
+                        <div class="kiosk-info-row">
+                            <strong>Estado:</strong>
+                            <span class="status-dot dot-online"></span>
+                            <span class="status-online">Online</span>
+                        </div>
+                        <div class="kiosk-info-row">
+                            <strong>Ultima Sincronizacion:</strong> Hace 5 min
+                        </div>
+                        <div class="kiosk-info-row">
+                            <strong>Registros Locales (Edge):</strong> 0 Pendientes
+                        </div>
+                    </div>
+                    <button class="btn-ver-logs">Ver Logs</button>
+                </div>
+
+            </div>
+        </main>
+    </div>
+</body>
+</html>

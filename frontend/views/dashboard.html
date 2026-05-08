@@ -3,9 +3,10 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-width=1.0">
-    <title>SREPI - Administracion DDA</title>
+    <title>SREPI - Metricas de Operacion</title>
     <link rel="stylesheet" href="../css/style.css">
     <link rel="stylesheet" href="../css/dashboard.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 </head>
 <body class="admin-page dashboard-page">
     <div class="admin-shell">
@@ -13,30 +14,35 @@
             <div class="sidebar-brand">SREPI Admin</div>
             <nav class="sidebar-nav">
                 <a class="sidebar-link" href="../index.html">🏠 Inicio</a>
-                <a class="sidebar-link" href="#">📦 Inventario y Lotes</a>
+                <a class="sidebar-link" href="./inventario.html">📦 Inventario y Lotes</a>
                 <a class="sidebar-link" href="./admin.html">⚙️ Motor DDA</a>
                 <a class="sidebar-link is-active" href="./dashboard.html">📊 Metricas de Operacion</a>
-                <a class="sidebar-link" href="#">🧭 Red de Supermercado</a>
+                <a class="sidebar-link" href="./red.html">🧭 Red de Supermercado</a>
             </nav>
         </aside>
 
-<main class="content">
+        <main class="content">
             <header>
-                <h1>Métricas de Operación SREPI</h1>
-                <button class="btn-secondary" style="width: auto;">📥 Exportar a Excel</button>
+                <div>
+                    <h1>Metricas de Operacion</h1>
+                    <p style="margin:4px 0 0;font-size:13px;color:#64748b;" id="dash-estado">Cargando...</p>
+                </div>
+                <div style="display:flex;gap:12px;align-items:center;">
+                    <button class="btn-secondary" id="btn-actualizar" style="width:auto;">Actualizar datos</button>
+                </div>
             </header>
 
             <section class="kpi-grid">
                 <div class="kpi-card" style="border-left-color: #22c55e;">
-                    <h3>Dinero Recaudado (Rescates)</h3>
-                    <p class="kpi-value" id="kpi-recaudo" style="color: #16a34a;">$ 0</p>
+                    <h3>Recaudo Total (Rescates)</h3>
+                    <p class="kpi-value" id="kpi-recaudo" style="color: #16a34a;">$0</p>
                 </div>
                 <div class="kpi-card" style="border-left-color: #38bdf8;">
                     <h3>Desperdicio Evitado (Kg)</h3>
                     <p class="kpi-value" id="kpi-desperdicio">0 Kg</p>
                 </div>
                 <div class="kpi-card" style="border-left-color: #8b5cf6;">
-                    <h3>Retiros Exitosos (Hoy)</h3>
+                    <h3>Retiros Exitosos Hoy</h3>
                     <p class="kpi-value" id="kpi-retiros">0</p>
                 </div>
                 <div class="kpi-card" style="border-left-color: #eab308;">
@@ -45,16 +51,15 @@
                 </div>
             </section>
 
-           <section class="dda-workspace">
+            <section class="dda-workspace">
                 <div class="panel">
-                    <h2>Evolución de Rescates (Últimos 7 días)</h2>
+                    <h2>Evolucion de Rescates (Ultimos 7 dias)</h2>
                     <div class="chart-container">
                         <canvas id="graficoRetiros"></canvas>
                     </div>
                 </div>
-                
                 <div class="panel">
-                    <h2>Estado del Inventario por Riesgo</h2>
+                    <h2>Estado del Inventario por Zona de Riesgo</h2>
                     <div class="chart-container">
                         <canvas id="graficoRiesgo"></canvas>
                     </div>
@@ -62,23 +67,26 @@
             </section>
 
             <section class="panel" style="margin-top: 30px;">
-                <h2>Últimas Transacciones de Rescate (Edge)</h2>
+                <h2>Ultimas Transacciones de Rescate</h2>
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th>Transacción</th>
+                            <th>Transaccion</th>
                             <th>Usuario</th>
-                            <th>Producto Rescatado</th>
-                            <th>Ahorro / Recaudo</th>
-                            <th>Estado de Red</th>
+                            <th>Producto</th>
+                            <th>Ahorro Cliente</th>
+                            <th>Recaudo SREPI</th>
+                            <th>Estado</th>
                         </tr>
                     </thead>
-                    <tbody id="tabla-transacciones"></tbody>
+                    <tbody id="tabla-transacciones">
+                        <tr>
+                            <td colspan="6" style="text-align:center;color:#64748b;padding:20px;">Cargando...</td>
+                        </tr>
+                    </tbody>
                 </table>
             </section>
         </main>
-        
-        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     </div>
 
     <script src="../js/dashboard.js" defer></script>

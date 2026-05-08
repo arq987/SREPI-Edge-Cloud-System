@@ -615,6 +615,279 @@ def obtener_dashboard_resumen():
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error generando dashboard: {str(e)}")
 
+@app.get("/api/dashboard/operacion")
+def obtener_dashboard_operacion():
+    try:
+        params = obtener_params_dda()
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                COALESCE(SUM(rl.Precio_Pagado), 0),
+                COALESCE(SUM(rl.XP_Otorgada), 0)
+            FROM Registro_Retiros rr
+            INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
+        """)
+        fila = cursor.fetchone()
+        recaudo_total = float(fila[0]) if fila else 0.0
+        xp_total = int(fila[1]) if fila else 0
+
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM Registro_Retiros rr
+            INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
+            WHERE CAST(rl.Fecha_Reserva AS DATE) = CAST(GETUTCDATE() AS DATE)
+        """)
+        fila = cursor.fetchone()
+        retiros_hoy = int(fila[0]) if fila else 0
+
+        cursor.execute("""
+            SELECT COALESCE(SUM(p.Peso_Kg), 0)
+            FROM Registro_Retiros rr
+            INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
+            INNER JOIN Inventario_Lotes il ON il.ID_Lote = rl.ID_Lote
+            INNER JOIN Productos p ON p.SKU = il.SKU
+        """)
+        fila = cursor.fetchone()
+        desperdicio_kg = float(fila[0]) if fila else 0.0
+
+        cursor.execute("""
+            SELECT
+                CAST(rl.Fecha_Reserva AS DATE) as fecha,
+                COUNT(*) as cantidad
+            FROM Registro_Retiros rr
+            INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
+            WHERE rl.Fecha_Reserva >= DATEADD(day, -6, CAST(GETUTCDATE() AS DATE))
+            GROUP BY CAST(rl.Fecha_Reserva AS DATE)
+            ORDER BY fecha
+        """)
+        retiros_por_dia = {str(fila[0]): int(fila[1]) for fila in cursor.fetchall()}
+
+        cursor.execute("""
+            SELECT DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento)
+            FROM Inventario_Lotes
+            WHERE Cantidad_Disponible > 0
+              AND DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento) >= 0
+        """)
+        riesgo = {"roja": 0, "amarilla": 0, "verde": 0}
+        for fila in cursor.fetchall():
+            dias = int(fila[0])
+            zona = clasificar_riesgo_por_dias(dias, params)
+            riesgo[zona] += 1
+
+        cursor.execute("""
+            SELECT TOP 20
+                rl.ID_Transaccion,
+                rr.Telefono_Usuario,
+                p.Nombre,
+                p.Precio_Base,
+                rl.Precio_Pagado,
+                rl.XP_Otorgada,
+                rl.Fecha_Reserva
+            FROM Registro_Retiros rr
+            INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
+            INNER JOIN Inventario_Lotes il ON il.ID_Lote = rl.ID_Lote
+            INNER JOIN Productos p ON p.SKU = il.SKU
+            ORDER BY rl.Fecha_Reserva DESC
+        """)
+        transacciones_raw = cursor.fetchall()
+        conn.close()
+
+        dias_nombres = ["Dom", "Lun", "Mar", "Mie", "Jue", "Vie", "Sab"]
+        hoy = datetime.utcnow().date()
+        chart_labels = []
+        chart_data = []
+        for i in range(6, -1, -1):
+            fecha = hoy - timedelta(days=i)
+            dia_nombre = dias_nombres[(fecha.weekday() + 1) % 7]
+            chart_labels.append(dia_nombre)
+            chart_data.append(retiros_por_dia.get(str(fecha), 0))
+
+        transacciones = []
+        for t in transacciones_raw:
+            precio_base = float(t[3])
+            precio_pagado = float(t[4])
+            fecha_str = str(t[6])[:10] if t[6] else "-"
+            transacciones.append({
+                "id": str(t[0])[:8] + "...",
+                "usuario": str(t[1]) if t[1] else "-",
+                "producto": str(t[2]),
+                "ahorro": round(max(0.0, precio_base - precio_pagado), 2),
+                "recaudo": round(precio_pagado, 2),
+                "xp": int(t[5]),
+                "fecha": fecha_str,
+                "estado": "Retirado"
+            })
+
+        return {
+            "kpis": {
+                "recaudo": recaudo_total,
+                "desperdicio_kg": round(desperdicio_kg, 3),
+                "retiros_hoy": retiros_hoy,
+                "xp_total": xp_total
+            },
+            "charts": {
+                "retiros": {
+                    "labels": chart_labels,
+                    "data": chart_data
+                },
+                "riesgo": {
+                    "labels": ["Zona Roja", "Zona Amarilla", "Zona Verde"],
+                    "data": [riesgo["roja"], riesgo["amarilla"], riesgo["verde"]]
+                }
+            },
+            "transacciones": transacciones
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error generando dashboard de operacion: {str(e)}")
+
+@app.get("/api/inventario/resumen")
+def resumen_inventario():
+    try:
+        params = obtener_params_dda()
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        cursor.execute("""
+            SELECT
+                COUNT(*) as total_lotes,
+                COALESCE(SUM(Cantidad_Disponible), 0) as total_unidades,
+                COALESCE(SUM(Cantidad_Inicial), 0) as total_inicial
+            FROM Inventario_Lotes
+            WHERE Cantidad_Disponible > 0
+              AND DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento) >= 0
+        """)
+        fila = cursor.fetchone()
+        total_lotes = int(fila[0]) if fila else 0
+        total_unidades = int(fila[1]) if fila else 0
+
+        cursor.execute("""
+            SELECT DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento)
+            FROM Inventario_Lotes
+            WHERE Cantidad_Disponible > 0
+              AND DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento) >= 0
+        """)
+        conteo = {"roja": 0, "amarilla": 0, "verde": 0}
+        for f in cursor.fetchall():
+            zona = clasificar_riesgo_por_dias(int(f[0]), params)
+            conteo[zona] += 1
+
+        cursor.execute("""
+            SELECT COUNT(*)
+            FROM Inventario_Lotes
+            WHERE DATEDIFF(day, GETUTCDATE(), Fecha_Vencimiento) < 0
+        """)
+        fila = cursor.fetchone()
+        vencidos = int(fila[0]) if fila else 0
+
+        conn.close()
+        return {
+            "total_lotes": total_lotes,
+            "total_unidades": total_unidades,
+            "por_zona": conteo,
+            "vencidos": vencidos
+        }
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error en resumen de inventario: {str(e)}")
+
+
+@app.get("/api/inventario/lotes")
+def listar_inventario_lotes(
+    zona: Optional[str] = Query(None),
+    categoria_id: Optional[int] = Query(None),
+    busqueda: Optional[str] = Query(None),
+    incluir_vencidos: Optional[bool] = Query(False)
+):
+    try:
+        params = obtener_params_dda()
+        conn = obtener_conexion()
+        if not conn:
+            raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
+        cursor = conn.cursor()
+
+        filtros_sql = []
+        if not incluir_vencidos:
+            filtros_sql.append("DATEDIFF(day, GETUTCDATE(), L.Fecha_Vencimiento) >= 0")
+
+        where_clause = ""
+        if filtros_sql:
+            where_clause = "WHERE " + " AND ".join(filtros_sql)
+
+        cursor.execute(f"""
+            SELECT
+                L.ID_Lote,
+                P.SKU,
+                P.Nombre,
+                C.Nombre AS Categoria,
+                C.ID_Categoria,
+                P.Precio_Base,
+                P.Peso_Kg,
+                L.Cantidad_Inicial,
+                L.Cantidad_Disponible,
+                L.Fecha_Ingreso,
+                L.Fecha_Vencimiento,
+                DATEDIFF(day, GETUTCDATE(), L.Fecha_Vencimiento) AS Dias_Para_Vencer
+            FROM Inventario_Lotes L
+            INNER JOIN Productos P ON P.SKU = L.SKU
+            INNER JOIN Categorias C ON C.ID_Categoria = P.ID_Categoria
+            {where_clause}
+            ORDER BY Dias_Para_Vencer ASC
+        """)
+        filas = cursor.fetchall()
+        conn.close()
+
+        lotes = []
+        for f in filas:
+            dias = int(f[11]) if f[11] is not None else -9999
+            zona_lote = clasificar_riesgo_por_dias(dias, params) if dias >= 0 else "vencido"
+            nombre_cat = str(f[3])
+            nombre_prod = str(f[2])
+            sku = str(f[1])
+
+            if zona and zona != "todos" and zona_lote != zona:
+                continue
+            if categoria_id is not None and int(f[4]) != categoria_id:
+                continue
+            if busqueda:
+                term = busqueda.lower()
+                if term not in nombre_prod.lower() and term not in sku.lower() and term not in nombre_cat.lower():
+                    continue
+
+            fecha_ingreso = str(f[9])[:10] if f[9] else "-"
+            fecha_vencimiento = str(f[10])[:10] if f[10] else "-"
+
+            lotes.append({
+                "id_lote": int(f[0]),
+                "sku": sku,
+                "nombre": nombre_prod,
+                "categoria": nombre_cat,
+                "categoria_id": int(f[4]),
+                "precio_base": float(f[5]),
+                "peso_kg": float(f[6]),
+                "cantidad_inicial": int(f[7]),
+                "cantidad_disponible": int(f[8]),
+                "fecha_ingreso": fecha_ingreso,
+                "fecha_vencimiento": fecha_vencimiento,
+                "dias_para_vencer": dias,
+                "zona": zona_lote
+            })
+
+        return {"lotes": lotes, "total": len(lotes)}
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error listando inventario: {str(e)}")
+
+
 @app.get("/api/ofertas")
 def consultar_ofertas_disponibles():
     ofertas_procesadas = []
