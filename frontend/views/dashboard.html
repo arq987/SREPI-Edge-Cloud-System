@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-width=1.0">
+    <title>SREPI - Administracion DDA</title>
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/dashboard.css">
+</head>
+<body class="admin-page dashboard-page">
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="sidebar-brand">SREPI Admin</div>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="../index.html">🏠 Inicio</a>
+                <a class="sidebar-link" href="#">📦 Inventario y Lotes</a>
+                <a class="sidebar-link" href="./admin.html">⚙️ Motor DDA</a>
+                <a class="sidebar-link is-active" href="./dashboard.html">📊 Metricas de Operacion</a>
+                <a class="sidebar-link" href="#">🧭 Red de Supermercado</a>
+            </nav>
+        </aside>
+
+<main class="content">
+            <header>
+                <h1>Métricas de Operación SREPI</h1>
+                <button class="btn-secondary" style="width: auto;">📥 Exportar a Excel</button>
+            </header>
+
+            <section class="kpi-grid">
+                <div class="kpi-card" style="border-left-color: #22c55e;">
+                    <h3>Dinero Recaudado (Rescates)</h3>
+                    <p class="kpi-value" id="kpi-recaudo" style="color: #16a34a;">$ 0</p>
+                </div>
+                <div class="kpi-card" style="border-left-color: #38bdf8;">
+                    <h3>Desperdicio Evitado (Kg)</h3>
+                    <p class="kpi-value" id="kpi-desperdicio">0 Kg</p>
+                </div>
+                <div class="kpi-card" style="border-left-color: #8b5cf6;">
+                    <h3>Retiros Exitosos (Hoy)</h3>
+                    <p class="kpi-value" id="kpi-retiros">0</p>
+                </div>
+                <div class="kpi-card" style="border-left-color: #eab308;">
+                    <h3>XP Total Entregada</h3>
+                    <p class="kpi-value" id="kpi-xp" style="color: #ca8a04;">0 XP</p>
+                </div>
+            </section>
+
+           <section class="dda-workspace">
+                <div class="panel">
+                    <h2>Evolución de Rescates (Últimos 7 días)</h2>
+                    <div class="chart-container">
+                        <canvas id="graficoRetiros"></canvas>
+                    </div>
+                </div>
+                
+                <div class="panel">
+                    <h2>Estado del Inventario por Riesgo</h2>
+                    <div class="chart-container">
+                        <canvas id="graficoRiesgo"></canvas>
+                    </div>
+                </div>
+            </section>
+
+            <section class="panel" style="margin-top: 30px;">
+                <h2>Últimas Transacciones de Rescate (Edge)</h2>
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Transacción</th>
+                            <th>Usuario</th>
+                            <th>Producto Rescatado</th>
+                            <th>Ahorro / Recaudo</th>
+                            <th>Estado de Red</th>
+                        </tr>
+                    </thead>
+                    <tbody id="tabla-transacciones"></tbody>
+                </table>
+            </section>
+        </main>
+        
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    </div>
+
+    <script src="../js/dashboard.js" defer></script>
+</body>
+</html>

@@ -871,9 +871,9 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
                 cursor = conn.cursor()
                 cursor.execute("""
                     IF NOT EXISTS (SELECT 1 FROM SREPI_Reservas_Log WHERE ID_Transaccion = %s)
-                        INSERT INTO SREPI_Reservas_Log (ID_Transaccion, ID_Lote, Precio_Pagado)
-                        VALUES (%s, %s, %s)
-                """, (id_transaccion, id_transaccion, id_lote, precio_pagado))
+                        INSERT INTO SREPI_Reservas_Log (ID_Transaccion, ID_Lote, Precio_Pagado, XP_Otorgada)
+                        VALUES (%s, %s, %s, %s)
+                """, (id_transaccion, id_transaccion, id_lote, precio_pagado, xp_ganados))
                 conn.commit()
                 conn.close()
         except Exception as e:
@@ -907,8 +907,10 @@ def procesar_retiro(datos: DatosRetiro):
             raise HTTPException(status_code=400, detail="Este Código QR ya fue canjeado anteriormente.")
         
         # 2. Si no existe, registramos la transacción para quemar el QR
-        cursor.execute("INSERT INTO Registro_Retiros (ID_Transaccion, Telefono_Usuario) VALUES (%s, %s)", 
-                    datos.id_transaccion, datos.usuario)
+        cursor.execute(
+            "INSERT INTO Registro_Retiros (ID_Transaccion, Telefono_Usuario) VALUES (%s, %s)",
+            (datos.id_transaccion, datos.usuario)
+        )
         
         # 3. Descontamos 1 unidad del lote
         cursor.execute("""

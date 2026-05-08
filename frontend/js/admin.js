@@ -35,6 +35,7 @@ const adminTabs = document.querySelectorAll('.admin-tab');
 const adminViews = document.querySelectorAll('.view');
 const reservaValorInput = document.getElementById('dda-reserva-valor');
 const reservaUnidadSelect = document.getElementById('dda-reserva-unidad');
+const simuladorBtn = document.getElementById('simulador-btn');
 
 const categoriaOverrides = new Map();
 const productoOverrides = new Map();
@@ -244,6 +245,9 @@ function pintarDashboard(data) {
     const ventas = data.ventas || {};
     const recaudo = data.recaudo || {};
 
+    const riesgoTotal = (riesgo.roja ?? 0) + (riesgo.amarilla ?? 0) + (riesgo.verde ?? 0);
+    setText('riesgo-total', riesgoTotal);
+
     setText('riesgo-roja', riesgo.roja ?? 0);
     setText('riesgo-amarilla', riesgo.amarilla ?? 0);
     setText('riesgo-verde', riesgo.verde ?? 0);
@@ -286,7 +290,6 @@ adminInputs.forEach(id => {
     if (input) {
         input.addEventListener('input', () => {
             sincronizarChips();
-            calcularVistaRapida();
         });
     }
 });
@@ -294,19 +297,16 @@ adminInputs.forEach(id => {
 if (categoriaSelect) {
     cargarCategorias().then(() => {
         sincronizarSegmento();
-        calcularVistaRapida();
     });
     categoriaSelect.addEventListener('change', async () => {
         await cargarProductos(categoriaSelect.value);
         sincronizarSegmento();
-        calcularVistaRapida();
     });
 }
 
 if (productoSelect) {
     productoSelect.addEventListener('change', () => {
         sincronizarSegmento();
-        calcularVistaRapida();
     });
 }
 
@@ -316,7 +316,6 @@ if (categoriaMultiplicadorInput) {
         if (categoria) {
             categoriaOverrides.set(categoria.id, Number(categoriaMultiplicadorInput.value || 1));
         }
-        calcularVistaRapida();
     });
 }
 
@@ -326,7 +325,6 @@ if (productoDescuentoInput) {
         if (producto) {
             productoOverrides.set(producto.id, Number(productoDescuentoInput.value || 0));
         }
-        calcularVistaRapida();
     });
 }
 
@@ -353,6 +351,12 @@ if (adminTabs.length) {
                 view.classList.toggle('view-active', view.id === targetId);
             });
         });
+    });
+}
+
+if (simuladorBtn) {
+    simuladorBtn.addEventListener('click', () => {
+        calcularVistaRapida();
     });
 }
 
@@ -418,5 +422,4 @@ if (guardarBtn) {
 
 sincronizarChips();
 sincronizarSegmento();
-calcularVistaRapida();
 cargarConfigReserva();

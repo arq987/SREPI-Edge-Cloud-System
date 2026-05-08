@@ -432,64 +432,6 @@ h2 {
     gap: 12px;
 }
 
-.dashboard-card {
-    text-align: left;
-}
-
-.dashboard-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    gap: 16px;
-    margin-bottom: 16px;
-}
-
-.dashboard-actions {
-    display: inline-flex;
-    align-items: center;
-    gap: 12px;
-}
-
-.dashboard-grid {
-    display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
-    gap: 16px;
-}
-
-.metric-card {
-    background: var(--surface-2);
-    border: 1px solid var(--stroke);
-    border-radius: 16px;
-    padding: 16px;
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-}
-
-.metric-card h3 {
-    margin: 0 0 6px;
-}
-
-.metric-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    font-size: 14px;
-}
-
-.metric-label {
-    color: var(--muted);
-}
-
-.metric-value {
-    font-weight: 700;
-}
-
-.metric-total {
-    border-top: 1px dashed var(--stroke);
-    padding-top: 8px;
-    margin-top: 4px;
-}
 
 .preview-card {
     background: #0d1b2a;
@@ -535,6 +477,7 @@ h2 {
     background: var(--accent-2);
     display: inline-block;
 }
+/* Contenedor estricto para evitar el bug de scroll infinito en Chart.js */
 
 @keyframes fadeUp {
     from {
@@ -569,8 +512,40 @@ h2 {
         grid-template-columns: 1fr;
     }
 
-    .dashboard-grid {
+
+    .admin-shell {
         grid-template-columns: 1fr;
+    }
+
+    .admin-sidebar {
+        flex-direction: row;
+        flex-wrap: wrap;
+        align-items: center;
+        justify-content: space-between;
+    }
+
+    .sidebar-nav {
+        flex-direction: row;
+        flex-wrap: wrap;
+    }
+
+    .admin-topbar {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .admin-stats,
+    .admin-panels,
+    .param-grid,
+    .segmento-grid,
+    .sim-grid,
+    .resultado-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .risk-row {
+        grid-template-columns: 1fr;
+        gap: 6px;
     }
 }
 
@@ -591,4 +566,291 @@ h2 {
 
 .dda-reserva-row option {
     color: #0d1b2a;
+}
+
+.admin-page {
+    background: #f4f7fb;
+    padding: 0;
+}
+
+.admin-shell {
+    display: grid;
+    grid-template-columns: 240px 1fr;
+    min-height: 100vh;
+}
+
+.admin-sidebar {
+    background: #111b2f;
+    color: #d5ddee;
+    padding: 24px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 24px;
+}
+
+.sidebar-brand {
+    font-weight: 700;
+    font-size: 18px;
+    color: #53b6ff;
+}
+
+.sidebar-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.sidebar-link {
+    text-decoration: none;
+    color: inherit;
+    padding: 10px 12px;
+    border-radius: 10px;
+    background: transparent;
+    font-size: 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.sidebar-link.is-active {
+    background: rgba(255, 255, 255, 0.12);
+    color: #ffffff;
+}
+
+.admin-main {
+    padding: 28px 36px 48px;
+}
+
+.admin-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 20px;
+    margin-bottom: 20px;
+}
+
+.admin-title {
+    font-size: 22px;
+    font-weight: 700;
+    margin: 0 0 6px;
+}
+
+.admin-sub {
+    margin: 0;
+    color: var(--muted);
+    font-size: 14px;
+}
+
+.admin-status {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-wrap: wrap;
+}
+
+.status-pill {
+    background: #33c56f;
+    color: #fff;
+    padding: 6px 12px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+}
+
+.admin-stats {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    margin-bottom: 24px;
+}
+
+.stat-card {
+    background: #fff;
+    border-radius: 14px;
+    padding: 16px 18px;
+    border: 1px solid rgba(17, 27, 47, 0.08);
+    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+}
+
+.stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+}
+
+.stat-value {
+    display: block;
+    margin-top: 8px;
+    font-size: 22px;
+    font-weight: 700;
+    color: #0d1b2a;
+}
+
+.admin-panels {
+    display: grid;
+    grid-template-columns: minmax(0, 1.2fr) minmax(0, 0.9fr);
+    gap: 20px;
+    margin-bottom: 24px;
+}
+
+.panel-card {
+    background: #fff;
+    border-radius: 16px;
+    padding: 20px;
+    border: 1px solid rgba(17, 27, 47, 0.08);
+    box-shadow: 0 12px 30px rgba(15, 23, 42, 0.05);
+}
+
+.panel-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.panel-header h3 {
+    margin: 0;
+    font-size: 16px;
+}
+
+.panel-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.panel-sub {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 13px;
+}
+
+.param-grid,
+.segmento-grid,
+.sim-grid {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.param-field {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 13px;
+}
+
+.param-field input,
+.param-field select {
+    width: 100%;
+    padding: 8px 10px;
+    border-radius: 10px;
+    border: 1px solid rgba(15, 23, 42, 0.15);
+    font-size: 13px;
+}
+
+.param-label {
+    color: #3c4b5f;
+    font-weight: 600;
+}
+
+.param-control {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.param-value {
+    font-weight: 700;
+    color: #2c70ff;
+    font-size: 12px;
+}
+
+.param-inline {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.param-field-wide {
+    grid-column: span 2;
+}
+
+.segmento-block {
+    margin-top: 18px;
+    padding-top: 16px;
+    border-top: 1px solid rgba(15, 23, 42, 0.08);
+}
+
+.segmento-block h4 {
+    margin: 0 0 12px;
+    font-size: 14px;
+}
+
+.resultado-card {
+    margin-top: 16px;
+    background: rgba(30, 200, 120, 0.08);
+    border-radius: 12px;
+    padding: 14px;
+    border: 1px solid rgba(30, 200, 120, 0.2);
+}
+
+.resultado-title {
+    margin: 0 0 10px;
+    font-weight: 700;
+    color: #1a7f4c;
+}
+
+.resultado-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 12px;
+}
+
+.resultado-value {
+    font-weight: 700;
+    margin: 6px 0 0;
+}
+
+.admin-detail {
+    display: grid;
+}
+
+.risk-grid {
+    display: grid;
+    gap: 8px;
+}
+
+.risk-row {
+    display: grid;
+    grid-template-columns: 1.2fr repeat(3, 0.6fr);
+    gap: 12px;
+    align-items: center;
+    padding: 8px 10px;
+    border-radius: 10px;
+    background: #f7f9fc;
+}
+
+.risk-label {
+    font-weight: 600;
+    color: #2b3a52;
+}
+
+.risk-value {
+    font-weight: 700;
+    color: #0d1b2a;
+}
+
+.admin-page .btn-primario {
+    background: #2c70ff;
+    color: #fff;
+    box-shadow: 0 10px 20px rgba(44, 112, 255, 0.28);
+}
+
+.admin-page .btn-secundario {
+    background: rgba(44, 112, 255, 0.08);
+    color: #2c70ff;
+    border: 1px solid rgba(44, 112, 255, 0.2);
 }

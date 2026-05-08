@@ -6,261 +6,232 @@
     <title>SREPI - Administracion DDA</title>
     <link rel="stylesheet" href="../css/style.css">
 </head>
-<body>
-    <div class="page">
-        <header class="hero">
-            <div class="hero-text">
-                <p class="eyebrow">SREPI Control Center</p>
-                <h1>Administracion DDA y Gamificacion</h1>
-                <p class="hero-sub">Ajusta umbrales, descuentos y XP base.</p>
-            </div>
-            <div class="hero-actions">
-                <a class="btn-secundario" href="../index.html">Volver al inicio</a>
-                <a class="tab-btn" href="./kiosco.html">Kiosco</a>
-                <a class="tab-btn is-active" href="./admin.html">Admin DDA</a>
-            </div>
-        </header>
+<body class="admin-page">
+    <div class="admin-shell">
+        <aside class="admin-sidebar">
+            <div class="sidebar-brand">SREPI Admin</div>
+            <nav class="sidebar-nav">
+                <a class="sidebar-link" href="../index.html">🏠 Inicio</a>
+                <a class="sidebar-link" href="#">📦 Inventario y Lotes</a>
+                <a class="sidebar-link is-active" href="./admin.html">⚙️ Motor DDA</a>
+                <a class="sidebar-link" href="./dashboard.html">📊 Metricas de Operacion</a>
+                <a class="sidebar-link" href="#">🧭 Red de Supermercado</a>
+            </nav>
+        </aside>
 
-        <main class="views">
-            <div class="admin-tabs">
-                <button class="tab-btn admin-tab is-active" data-target="dashboard-view">Dashboard</button>
-                <button class="tab-btn admin-tab" data-target="dda-view">Configuracion DDA</button>
-            </div>
+        <main class="admin-main">
+            <header class="admin-topbar">
+                <div>
+                    <p class="admin-title">Configuracion del Algoritmo de Descuento Dinamico</p>
+                    <p class="admin-sub">Ajusta parametros clave, simula resultados y despliega cambios.</p>
+                </div>
+                <div class="admin-status">
+                    <span class="status-pill">Estado: En ejecucion</span>
+                    <button class="btn-secundario" id="dashboard-refresh">Actualizar</button>
+                    <span id="dashboard-estado" class="estado-guardado"></span>
+                </div>
+            </header>
 
-            <section class="view view-active" id="dashboard-view">
-                <div class="card dashboard-card">
-                    <div class="dashboard-header">
-                        <div>
-                            <h2>Dashboard de rescates</h2>
-                            <p class="descripcion">Resumen de riesgo, ventas y recaudo.</p>
-                        </div>
-                        <div class="dashboard-actions">
-                            <span id="dashboard-estado" class="estado-guardado"></span>
-                            <button class="btn-secundario" id="dashboard-refresh">Actualizar</button>
+            <section class="admin-stats">
+                <div class="stat-card">
+                    <span class="stat-label">Productos en riesgo</span>
+                    <span class="stat-value" id="riesgo-total">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Productos vendidos</span>
+                    <span class="stat-value" id="ventas-total">0</span>
+                </div>
+                <div class="stat-card">
+                    <span class="stat-label">Recaudo total</span>
+                    <span class="stat-value" id="recaudo-total">$0</span>
+                </div>
+            </section>
+
+            <section class="admin-panels">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h3>Parametros del algoritmo</h3>
+                        <div class="panel-actions">
+                            <span id="guardar-estado" class="estado-guardado"></span>
+                            <button class="btn-primario" id="guardar-config">Actualizar motor</button>
                         </div>
                     </div>
 
-                    <div class="dashboard-grid">
-                        <div class="metric-card">
-                            <h3>Productos en riesgo</h3>
-                            <div class="metric-row">
-                                <span class="metric-label">Roja (≤2 dias)</span>
-                                <span class="metric-value" id="riesgo-roja">0</span>
+                    <div class="param-grid">
+                        <label class="param-field">
+                            <span class="param-label">Zona roja (dias)</span>
+                            <div class="param-control">
+                                <input type="number" id="dda-roja-dias" value="2" min="1" max="3" step="1">
+                                <span class="param-value" id="dda-roja-dias-val">2d</span>
                             </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Amarilla (≤3 dias)</span>
-                                <span class="metric-value" id="riesgo-amarilla">0</span>
+                        </label>
+                        <label class="param-field">
+                            <span class="param-label">Zona amarilla (dias)</span>
+                            <div class="param-control">
+                                <input type="number" id="dda-amarilla-dias" value="3" min="2" max="7" step="1">
+                                <span class="param-value" id="dda-amarilla-dias-val">3d</span>
                             </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Verde (≥4 dias)</span>
-                                <span class="metric-value" id="riesgo-verde">0</span>
+                        </label>
+                        <label class="param-field">
+                            <span class="param-label">Descuento max permitido (%)</span>
+                            <div class="param-control">
+                                <input type="number" id="dda-desc-roja" value="70" min="10" max="90" step="1">
+                                <span class="param-value" id="dda-desc-roja-val">70%</span>
+                            </div>
+                        </label>
+                        <label class="param-field">
+                            <span class="param-label">Descuento zona amarilla (%)</span>
+                            <div class="param-control">
+                                <input type="number" id="dda-desc-amarilla" value="50" min="10" max="90" step="1">
+                                <span class="param-value" id="dda-desc-amarilla-val">50%</span>
+                            </div>
+                        </label>
+                        <label class="param-field">
+                            <span class="param-label">Descuento zona verde (%)</span>
+                            <div class="param-control">
+                                <input type="number" id="dda-desc-verde" value="20" min="5" max="60" step="1">
+                                <span class="param-value" id="dda-desc-verde-val">20%</span>
+                            </div>
+                        </label>
+                        <label class="param-field">
+                            <span class="param-label">Multiplicador XP</span>
+                            <div class="param-control">
+                                <input type="number" id="xp-multiplicador" value="1.0" min="0.5" max="3" step="0.1">
+                                <span class="param-value" id="xp-multiplicador-val">1.0x</span>
+                            </div>
+                        </label>
+                        <label class="param-field param-field-wide">
+                            <span class="param-label">Tiempo limite reserva</span>
+                            <div class="param-inline">
+                                <input type="number" id="dda-reserva-valor" value="2" min="1" max="24" step="1">
+                                <select id="dda-reserva-unidad">
+                                    <option value="horas">Horas</option>
+                                    <option value="dias">Dias</option>
+                                </select>
+                                <span class="param-value" id="dda-reserva-valor-val">2 horas</span>
+                            </div>
+                        </label>
+                    </div>
+
+                    <div class="segmento-block">
+                        <h4>Segmento y ajustes avanzados</h4>
+                        <div class="segmento-grid">
+                            <div class="segment-card">
+                                <div class="segment-card-header">
+                                    <h5>Categoria activa</h5>
+                                    <span class="segment-tag" id="segmento-categoria-actual">Sin seleccionar</span>
+                                </div>
+                                <label class="param-field">
+                                    <span class="param-label">Categoria</span>
+                                    <select id="categoria-select">
+                                        <option value="">Selecciona una categoria</option>
+                                    </select>
+                                </label>
+                                <label class="param-field">
+                                    <span class="param-label">Multiplicador categoria</span>
+                                    <input type="number" id="categoria-multiplicador" value="1.0" min="0.5" max="3" step="0.1">
+                                </label>
+                                <p class="segment-note">Los cambios aplican a todos los productos de la categoria seleccionada.</p>
+                            </div>
+                            <div class="segment-card">
+                                <div class="segment-card-header">
+                                    <h5>Producto activo</h5>
+                                    <span class="segment-tag" id="segmento-producto-actual">Sin seleccionar</span>
+                                </div>
+                                <label class="param-field">
+                                    <span class="param-label">Producto</span>
+                                    <select id="producto-select">
+                                        <option value="">Selecciona un producto</option>
+                                    </select>
+                                </label>
+                                <label class="param-field">
+                                    <span class="param-label">Descuento producto (%)</span>
+                                    <input type="number" id="producto-descuento" value="0" min="-20" max="40" step="1">
+                                </label>
+                                <p class="segment-note">El ajuste se guarda solo para este producto.</p>
+                            </div>
+                            <div class="segment-card segment-card-wide">
+                                <div class="segment-card-header">
+                                    <h5>XP por zona</h5>
+                                </div>
+                                <div class="segment-xp-grid">
+                                    <label class="param-field">
+                                        <span class="param-label">XP roja</span>
+                                        <input type="number" id="xp-roja" value="100" min="10" step="10">
+                                    </label>
+                                    <label class="param-field">
+                                        <span class="param-label">XP amarilla</span>
+                                        <input type="number" id="xp-amarilla" value="50" min="10" step="10">
+                                    </label>
+                                    <label class="param-field">
+                                        <span class="param-label">XP verde</span>
+                                        <input type="number" id="xp-verde" value="20" min="5" step="5">
+                                    </label>
+                                </div>
                             </div>
                         </div>
+                    </div>
+                </div>
 
-                        <div class="metric-card">
-                            <h3>Productos vendidos</h3>
-                            <div class="metric-row">
-                                <span class="metric-label">Roja</span>
-                                <span class="metric-value" id="ventas-roja">0</span>
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h3>Simulador en vivo</h3>
+                        <button class="btn-secundario" type="button" id="simulador-btn">Calcular simulacion</button>
+                    </div>
+                    <p class="panel-sub">Prueba como afectan estos parametros a un lote especifico.</p>
+                    <div class="sim-grid">
+                        <label class="param-field">
+                            <span class="param-label">Precio original del producto</span>
+                            <input type="number" id="preview-precio" value="12000" min="1000" step="500">
+                        </label>
+                        <label class="param-field">
+                            <span class="param-label">Dias restantes para vencer</span>
+                            <input type="number" id="preview-dias" value="4" min="1" step="1">
+                        </label>
+                    </div>
+                    <div class="resultado-card">
+                        <p class="resultado-title">Proyeccion del motor</p>
+                        <div class="resultado-grid">
+                            <div>
+                                <span class="muted">Nuevo precio</span>
+                                <p class="resultado-value" id="preview-precio-oferta">$0</p>
                             </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Amarilla</span>
-                                <span class="metric-value" id="ventas-amarilla">0</span>
+                            <div>
+                                <span class="muted">Descuento aplicado</span>
+                                <p class="resultado-value" id="preview-zona">-</p>
                             </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Verde</span>
-                                <span class="metric-value" id="ventas-verde">0</span>
-                            </div>
-                            <div class="metric-row metric-total">
-                                <span class="metric-label">Total</span>
-                                <span class="metric-value" id="ventas-total">0</span>
-                            </div>
-                        </div>
-
-                        <div class="metric-card">
-                            <h3>Dinero recaudado</h3>
-                            <div class="metric-row">
-                                <span class="metric-label">Roja</span>
-                                <span class="metric-value" id="recaudo-roja">$0</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Amarilla</span>
-                                <span class="metric-value" id="recaudo-amarilla">$0</span>
-                            </div>
-                            <div class="metric-row">
-                                <span class="metric-label">Verde</span>
-                                <span class="metric-value" id="recaudo-verde">$0</span>
-                            </div>
-                            <div class="metric-row metric-total">
-                                <span class="metric-label">Total</span>
-                                <span class="metric-value" id="recaudo-total">$0</span>
+                            <div>
+                                <span class="muted">XP otorgada</span>
+                                <p class="resultado-value" id="preview-xp">0 XP</p>
                             </div>
                         </div>
                     </div>
                 </div>
             </section>
 
-            <section class="view" id="dda-view">
-                <div class="card admin-card">
-                    <div class="admin-header">
-                        <div>
-                            <h2>Configuracion DDA</h2>
-                            <p class="descripcion">Cambios locales (simulados) para el motor de descuentos.</p>
-                        </div>
-                        <div class="admin-actions">
-                            <span id="guardar-estado" class="estado-guardado"></span>
-                            <button class="btn-primario" id="guardar-config">Guardar cambios</button>
-                        </div>
+            <section class="admin-detail">
+                <div class="panel-card">
+                    <div class="panel-header">
+                        <h3>Resumen por etapa de riesgo</h3>
                     </div>
-
-                    <div class="dda-hero">
-                        <div class="dda-hero-header">
-                            <h3>Configuracion del Motor DDA</h3>
-                            <span class="dda-hero-note">Los cambios se aplican automaticamente a los productos activos.</span>
+                    <div class="risk-grid">
+                        <div class="risk-row">
+                            <span class="risk-label">Roja (≤2 dias)</span>
+                            <span class="risk-value" id="riesgo-roja">0</span>
+                            <span class="risk-value" id="ventas-roja">0</span>
+                            <span class="risk-value" id="recaudo-roja">$0</span>
                         </div>
-                        <div class="dda-hero-grid">
-                            <div class="dda-slider">
-                                <div class="dda-slider-header">
-                                    <span class="dda-icon">🔻</span>
-                                    <span class="dda-label">Descuento max permitido</span>
-                                    <span class="dda-value" id="dda-desc-roja-val">70%</span>
-                                </div>
-                                <input type="range" id="dda-desc-roja" min="10" max="90" value="70">
-                            </div>
-                            <div class="dda-slider">
-                                <div class="dda-slider-header">
-                                    <span class="dda-icon">⏱️</span>
-                                    <span class="dda-label">Umbral (≤2 dias)</span>
-                                    <span class="dda-value" id="dda-roja-dias-val">2d</span>
-                                </div>
-                                <input type="range" id="dda-roja-dias" min="1" max="3" value="2">
-                            </div>
-                            <div class="dda-slider">
-                                <div class="dda-slider-header">
-                                    <span class="dda-icon">🏆</span>
-                                    <span class="dda-label">Multiplicador XP</span>
-                                    <span class="dda-value" id="xp-multiplicador-val">1.0x</span>
-                                </div>
-                                <input type="range" id="xp-multiplicador" min="0.5" max="3" step="0.1" value="1.0">
-                            </div>
-                            <div class="dda-slider">
-                                <div class="dda-slider-header">
-                                    <span class="dda-icon">🕒</span>
-                                    <span class="dda-label">Tiempo limite reserva</span>
-                                    <span class="dda-value" id="dda-reserva-valor-val">2 horas</span>
-                                </div>
-                                <div class="dda-reserva-row">
-                                    <input type="range" id="dda-reserva-valor" min="1" max="24" step="1" value="2">
-                                    <select id="dda-reserva-unidad">
-                                        <option value="horas">Horas</option>
-                                        <option value="dias">Dias</option>
-                                    </select>
-                                </div>
-                            </div>
+                        <div class="risk-row">
+                            <span class="risk-label">Amarilla (≤3 dias)</span>
+                            <span class="risk-value" id="riesgo-amarilla">0</span>
+                            <span class="risk-value" id="ventas-amarilla">0</span>
+                            <span class="risk-value" id="recaudo-amarilla">$0</span>
                         </div>
-                    </div>
-
-                    <div class="admin-grid">
-                        <form class="panel" id="dda-form">
-                            <h3>Segmento</h3>
-                            <label class="field">
-                                <span>Categoria</span>
-                                <select id="categoria-select">
-                                    <option value="">Selecciona una categoria</option>
-                                </select>
-                            </label>
-                            <label class="field">
-                                <span>Producto</span>
-                                <select id="producto-select">
-                                    <option value="">Selecciona un producto</option>
-                                </select>
-                            </label>
-                            <div class="split">
-                                <label class="field">
-                                    <span>Multiplicador categoria</span>
-                                    <input type="number" id="categoria-multiplicador" value="1.0" min="0.5" max="3" step="0.1">
-                                </label>
-                                <label class="field">
-                                    <span>Descuento producto (%)</span>
-                                    <input type="number" id="producto-descuento" value="0" min="-20" max="40" step="1">
-                                </label>
-                            </div>
-
-                            <h3>Umbrales por tiempo</h3>
-                            <label class="field">
-                                <span>Zona amarilla (dias)</span>
-                                <div class="field-row">
-                                    <input type="range" id="dda-amarilla-dias" min="2" max="7" value="3">
-                                    <span class="chip" id="dda-amarilla-dias-val">3d</span>
-                                </div>
-                            </label>
-
-                            <h3>Descuentos</h3>
-                            <label class="field">
-                                <span>Descuento zona amarilla (%)</span>
-                                <div class="field-row">
-                                    <input type="range" id="dda-desc-amarilla" min="10" max="90" value="50">
-                                    <span class="chip" id="dda-desc-amarilla-val">50%</span>
-                                </div>
-                            </label>
-                            <label class="field">
-                                <span>Descuento zona verde (%)</span>
-                                <div class="field-row">
-                                    <input type="range" id="dda-desc-verde" min="5" max="60" value="20">
-                                    <span class="chip" id="dda-desc-verde-val">20%</span>
-                                </div>
-                            </label>
-
-                            <h3>XP base</h3>
-                            <div class="split">
-                                <label class="field">
-                                    <span>XP roja</span>
-                                    <input type="number" id="xp-roja" value="100" min="10" step="10">
-                                </label>
-                                <label class="field">
-                                    <span>XP amarilla</span>
-                                    <input type="number" id="xp-amarilla" value="50" min="10" step="10">
-                                </label>
-                                <label class="field">
-                                    <span>XP verde</span>
-                                    <input type="number" id="xp-verde" value="20" min="5" step="5">
-                                </label>
-                            </div>
-                        </form>
-
-                        <div class="panel preview">
-                            <h3>Vista rapida</h3>
-                            <label class="field">
-                                <span>Precio base</span>
-                                <input type="number" id="preview-precio" value="12000" min="1000" step="500">
-                            </label>
-                            <label class="field">
-                                <span>Dias para vencer</span>
-                                <input type="number" id="preview-dias" value="4" min="1" step="1">
-                            </label>
-
-                            <div class="preview-card">
-                                <p class="preview-title">Resultado DDA</p>
-                                <div class="preview-grid">
-                                    <div>
-                                        <span class="muted">Precio oferta</span>
-                                        <p class="preview-value" id="preview-precio-oferta">$0</p>
-                                    </div>
-                                    <div>
-                                        <span class="muted">XP otorgada</span>
-                                        <p class="preview-value" id="preview-xp">0 XP</p>
-                                    </div>
-                                    <div>
-                                        <span class="muted">Zona</span>
-                                        <p class="preview-value" id="preview-zona">-</p>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="panel-note">
-                                <span class="dot"></span>
-                                Cambios pendientes de sincronizar con el backend.
-                            </div>
+                        <div class="risk-row">
+                            <span class="risk-label">Verde (≥4 dias)</span>
+                            <span class="risk-value" id="riesgo-verde">0</span>
+                            <span class="risk-value" id="ventas-verde">0</span>
+                            <span class="risk-value" id="recaudo-verde">$0</span>
                         </div>
                     </div>
                 </div>
