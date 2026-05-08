@@ -80,18 +80,19 @@
         }
 
         .kiosk-card-name {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
             color: #0f172a;
             margin: 0 0 16px;
             display: flex;
             align-items: flex-start;
             gap: 6px;
+            line-height: 1.35;
         }
 
         .kiosk-card-name .pin {
-            font-size: 18px;
-            line-height: 1.2;
+            font-size: 16px;
+            line-height: 1.35;
             flex-shrink: 0;
         }
 
@@ -104,20 +105,29 @@
         .kiosk-info-list {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 10px;
             flex: 1;
             margin-bottom: 18px;
         }
 
         .kiosk-info-row {
-            font-size: 14px;
-            color: #334155;
-            line-height: 1.4;
+            display: flex;
+            flex-direction: column;
+            gap: 2px;
         }
 
-        .kiosk-info-row strong {
-            font-weight: 700;
-            color: #0f172a;
+        .info-lbl {
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.04em;
+        }
+
+        .info-val {
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
         }
 
         .status-dot {
@@ -201,15 +211,16 @@
                     <div class="kiosk-divider"></div>
                     <div class="kiosk-info-list">
                         <div class="kiosk-info-row">
-                            <strong>Estado:</strong>
-                            <span class="status-dot dot-online"></span>
-                            <span class="status-online">Online</span>
+                            <span class="info-lbl">Estado</span>
+                            <span class="info-val"><span class="status-dot dot-online"></span><span class="status-online">Online</span></span>
                         </div>
                         <div class="kiosk-info-row">
-                            <strong>Ultima Sincronizacion:</strong> Hace 2 min
+                            <span class="info-lbl">Ultima Sincronizacion</span>
+                            <span class="info-val">Hace 2 min</span>
                         </div>
                         <div class="kiosk-info-row">
-                            <strong>Registros Locales (Edge):</strong> 0 Pendientes
+                            <span class="info-lbl">Registros Locales (Edge)</span>
+                            <span class="info-val">0 Pendientes</span>
                         </div>
                     </div>
                     <button class="btn-ver-logs">Ver Logs</button>
@@ -224,17 +235,16 @@
                     <div class="kiosk-divider"></div>
                     <div class="kiosk-info-list">
                         <div class="kiosk-info-row">
-                            <strong>Estado:</strong>
-                            <span class="status-dot dot-offline"></span>
-                            <span class="status-offline">Offline (Modo Edge)</span>
+                            <span class="info-lbl">Estado</span>
+                            <span class="info-val"><span class="status-dot dot-offline"></span><span class="status-offline">Offline (Modo Edge)</span></span>
                         </div>
                         <div class="kiosk-info-row">
-                            <strong>Ultima Sincronizacion:</strong>
-                            <span class="value-warn">Hace 4 horas</span>
+                            <span class="info-lbl">Ultima Sincronizacion</span>
+                            <span class="info-val value-warn">Hace 4 horas</span>
                         </div>
                         <div class="kiosk-info-row">
-                            <strong>Registros Locales (Edge):</strong>
-                            <span class="value-warn">14 Pendientes</span>
+                            <span class="info-lbl">Registros Locales (Edge)</span>
+                            <span class="info-val value-warn">14 Pendientes</span>
                         </div>
                     </div>
                     <button class="btn-forzar-ping">Forzar Ping</button>
@@ -249,15 +259,16 @@
                     <div class="kiosk-divider"></div>
                     <div class="kiosk-info-list">
                         <div class="kiosk-info-row">
-                            <strong>Estado:</strong>
-                            <span class="status-dot dot-online"></span>
-                            <span class="status-online">Online</span>
+                            <span class="info-lbl">Estado</span>
+                            <span class="info-val"><span class="status-dot dot-online"></span><span class="status-online">Online</span></span>
                         </div>
                         <div class="kiosk-info-row">
-                            <strong>Ultima Sincronizacion:</strong> Hace 5 min
+                            <span class="info-lbl">Ultima Sincronizacion</span>
+                            <span class="info-val">Hace 5 min</span>
                         </div>
                         <div class="kiosk-info-row">
-                            <strong>Registros Locales (Edge):</strong> 0 Pendientes
+                            <span class="info-lbl">Registros Locales (Edge)</span>
+                            <span class="info-val">0 Pendientes</span>
                         </div>
                     </div>
                     <button class="btn-ver-logs">Ver Logs</button>

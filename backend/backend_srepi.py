@@ -1283,32 +1283,70 @@ def procesar_retiro(datos: DatosRetiro):
         if not conn:
             raise HTTPException(status_code=503, detail="No se pudo conectar a la base de datos (timeout de conexion).")
         cursor = conn.cursor()
-        
+
         # 1. VERIFICACIÓN DE SEGURIDAD: ¿Ya existe esta transacción?
         cursor.execute("SELECT ID_Transaccion FROM Registro_Retiros WHERE ID_Transaccion = %s", datos.id_transaccion)
         if cursor.fetchone():
             conn.close()
-            # Devolvemos error 400 si el QR ya fue usado
             raise HTTPException(status_code=400, detail="Este Código QR ya fue canjeado anteriormente.")
-        
-        # 2. Si no existe, registramos la transacción para quemar el QR
+
+        # 2. Obtener nombre del producto y precio base para el mensaje
+        cursor.execute("""
+            SELECT P.Nombre, P.Precio_Base
+            FROM Inventario_Lotes L
+            INNER JOIN Productos P ON P.SKU = L.SKU
+            WHERE L.ID_Lote = %s
+        """, datos.id_lote)
+        prod_fila = cursor.fetchone()
+        nombre_producto = str(prod_fila[0]) if prod_fila else "Producto"
+        precio_base = float(prod_fila[1]) if prod_fila else 0.0
+
+        # 3. Registrar la transacción para quemar el QR
         cursor.execute(
             "INSERT INTO Registro_Retiros (ID_Transaccion, Telefono_Usuario) VALUES (%s, %s)",
             (datos.id_transaccion, datos.usuario)
         )
-        
-        # 3. Descontamos 1 unidad del lote
+
+        # 4. Descontar 1 unidad del lote
         cursor.execute("""
-            UPDATE Inventario_Lotes 
-            SET Cantidad_Disponible = Cantidad_Disponible - 1 
+            UPDATE Inventario_Lotes
+            SET Cantidad_Disponible = Cantidad_Disponible - 1
             WHERE ID_Lote = %s AND Cantidad_Disponible > 0
         """, datos.id_lote)
-        
+
         conn.commit()
+
+        # 5. Calcular XP total acumulada del usuario (incluyendo esta transacción)
+        xp_acumulada = datos.xp_ganada
+        try:
+            cursor.execute("""
+                SELECT COALESCE(SUM(rl.XP_Otorgada), 0)
+                FROM Registro_Retiros rr
+                INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
+                WHERE rr.Telefono_Usuario = %s
+            """, datos.usuario)
+            fila_xp = cursor.fetchone()
+            xp_acumulada = int(fila_xp[0]) + datos.xp_ganada if fila_xp else datos.xp_ganada
+        except Exception:
+            pass
+
         conn.close()
-        
+
+        # 6. Enviar confirmación por WhatsApp
+        try:
+            mensaje_confirmacion = (
+                f"✅ *¡Retiro Exitoso en SREPI!*\n\n"
+                f"📦 Producto: *{nombre_producto}*\n"
+                f"⭐ XP ganada en este rescate: *{datos.xp_ganada} XP*\n"
+                f"🏆 Tu XP total acumulada: *{xp_acumulada} XP*\n\n"
+                f"¡Gracias por rescatar este producto y ayudar a reducir el desperdicio! 🌱"
+            )
+            enviar_mensaje_whatsapp(datos.usuario, mensaje_confirmacion)
+        except Exception as e:
+            print(f"⚠️ No se pudo enviar la confirmacion WhatsApp: {e}")
+
         return {"status": "success", "mensaje": "Inventario descontado exitosamente."}
-        
+
     except HTTPException as he:
         raise he
     except Exception as e:

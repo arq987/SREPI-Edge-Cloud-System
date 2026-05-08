@@ -3,7 +3,11 @@
     "allow": [
       "Bash(git *)",
       "Bash(node *)",
-      "Bash(python *)"
+      "Bash(python *)",
+      "Bash(powershell *)",
+      "Bash(powershell *)",
+      "Bash(powershell *)",
+      "Bash(powershell *)"
     ]
   }
 }
