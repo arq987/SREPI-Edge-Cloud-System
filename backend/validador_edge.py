@@ -17,6 +17,8 @@ def validador_kiosco_offline(token_escaneado):
         print("==================================================")
         print(f"👤 Cliente (Tel) : {payload['usuario']}")
         print(f"📦 Producto      : {payload['producto']}")
+        if "cantidad" in payload:
+            print(f"🔢 Cantidad      : {payload['cantidad']}")
         print(f"💵 Valor a Pagar : ${payload['pagado']}")
         print(f"⭐ XP Otorgado   : {payload['xp']}")
         print("==================================================")

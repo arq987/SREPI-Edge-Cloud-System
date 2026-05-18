@@ -3,6 +3,7 @@ import time
 
 URL_BASE = "http://127.0.0.1:8000/api"
 MAX_OFERTAS_POR_MENSAJE = 10
+MAX_UNIDADES_POR_PRODUCTO = 5
 
 def filtrar_ofertas_por_categoria(ofertas, categoria_nombre):
     marcador = f"({categoria_nombre})"
@@ -11,6 +12,7 @@ def filtrar_ofertas_por_categoria(ofertas, categoria_nombre):
 def imprimir_ofertas(ofertas):
     for oferta in ofertas:
         print(f"   🟢 ID: {oferta['id_lote']} | {oferta['producto']}")
+        print(f"      📦 Disponibles: {oferta.get('unidades_disponibles', 0)} unidades")
         print(f"      Antes: {oferta['precio_original']} -> AHORA: {oferta['precio_oferta']}")
         print(f"      ⏳ ¡Vence en {oferta['vence_en_dias']} dias! Ganas {oferta['recompensa_xp']} XP.")
         print("   ---")
@@ -89,6 +91,32 @@ def simular_chat_whatsapp():
         print("🤖 SREPI Bot: ¡Entendido! Avísame si quieres rescatar alimentos luego.")
         return
 
+    oferta_seleccionada = None
+    for oferta in ofertas_filtradas:
+        if str(oferta.get("id_lote")) == seleccion:
+            oferta_seleccionada = oferta
+            break
+
+    if not oferta_seleccionada:
+        print("🤖 SREPI Bot: Ese ID no está en las ofertas disponibles.")
+        return
+
+    disponibles = int(oferta_seleccionada.get("unidades_disponibles", 0))
+    max_permitido = min(MAX_UNIDADES_POR_PRODUCTO, disponibles)
+    if max_permitido <= 0:
+        print("🤖 SREPI Bot: Ese lote ya no tiene unidades disponibles.")
+        return
+
+    print(f"✍️  Tú: (Escribe la cantidad a reservar, 1-{max_permitido})")
+    cantidad = input(">> ")
+    if not cantidad.isdigit():
+        print("🤖 SREPI Bot: Cantidad no valida.")
+        return
+    cantidad = int(cantidad)
+    if cantidad < 1 or cantidad > max_permitido:
+        print("🤖 SREPI Bot: Cantidad fuera de rango.")
+        return
+
     print("✍️  Tú: (Escribe tu número de teléfono para la reserva)")
     telefono = input(">> ")
 
@@ -96,7 +124,9 @@ def simular_chat_whatsapp():
     time.sleep(1)
 
     # 3. El bot envía la confirmación al backend
-    respuesta_reserva = requests.post(f"{URL_BASE}/reservar/{seleccion}?telefono_usuario={telefono}")
+    respuesta_reserva = requests.post(
+        f"{URL_BASE}/reservar/{seleccion}?telefono_usuario={telefono}&cantidad={cantidad}"
+    )
     
     if respuesta_reserva.status_code == 200:
         datos_reserva = respuesta_reserva.json()

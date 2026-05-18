@@ -39,7 +39,9 @@ BOT_ESTADOS = {}
 ESTADO_ESPERANDO_CATEGORIA = "esperando_categoria"
 ESTADO_ESPERANDO_LOTE = "esperando_lote"
 ESTADO_ESPERANDO_MAS = "esperando_mas"
+ESTADO_ESPERANDO_CANTIDAD = "esperando_cantidad"
 MAX_OFERTAS_POR_MENSAJE = 10
+MAX_UNIDADES_POR_PRODUCTO = 5
 
 def obtener_conexion():
     try:
@@ -138,6 +140,7 @@ def formatear_ofertas(ofertas):
     respuesta = ""
     for item in ofertas:
         respuesta += f"🟢 Envía *{item['id_lote']}* para rescatar: {item['producto']}\n"
+        respuesta += f"📦 Disponibles: {item.get('unidades_disponibles', 0)} unidades\n"
         respuesta += f"💵 {item['precio_original']} -> *{item['precio_oferta']}*\n"
         respuesta += f"⏳ Vence en {item['vence_en_dias']} dias | Ganas {item['recompensa_xp']} XP\n---\n"
     return respuesta
@@ -474,10 +477,28 @@ async def recibir_mensaje_whatsapp(request: Request):
                             "ofertas": ofertas_filtradas,
                             "offset": len(primer_bloque)
                         }
-                    else:
-                        # 2. El cliente envía un número (ID de Lote), procesamos la reserva
+                    elif estado_actual == ESTADO_ESPERANDO_CANTIDAD:
+                        estado_bot = BOT_ESTADOS.get(telefono_cliente, {})
+                        id_lote = estado_bot.get("id_lote")
+                        max_disponible = int(estado_bot.get("max_disponible", 0))
+                        cantidad = int(texto_mensaje)
+
+                        if not id_lote:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                "🤖 No tengo un lote seleccionado. Escribe *ofertas* para ver categorias."
+                            )
+                            return {"status": "success"}
+
+                        if cantidad < 1 or cantidad > max_disponible:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                f"🤖 Cantidad no valida. Elige un numero entre 1 y {max_disponible}."
+                            )
+                            return {"status": "success"}
+
                         try:
-                            resultado = confirmar_reserva(int(texto_mensaje), telefono_cliente)
+                            resultado = confirmar_reserva(int(id_lote), telefono_cliente, cantidad)
                         except HTTPException as he:
                             if he.status_code == 503:
                                 enviar_mensaje_whatsapp(
@@ -486,7 +507,7 @@ async def recibir_mensaje_whatsapp(request: Request):
                                 )
                                 return {"status": "success"}
                             raise
-                        
+
                         if "error" in resultado:
                             enviar_mensaje_whatsapp(telefono_cliente, f"🤖 *Error:* {resultado['error']}")
                         else:
@@ -495,6 +516,59 @@ async def recibir_mensaje_whatsapp(request: Request):
                             enviar_mensaje_whatsapp(telefono_cliente, respuesta_qr)
                             if telefono_cliente in BOT_ESTADOS:
                                 del BOT_ESTADOS[telefono_cliente]
+                    else:
+                        # 2. El cliente envía un número (ID de Lote), pedimos cantidad
+                        id_lote = int(texto_mensaje)
+                        estado_bot = BOT_ESTADOS.get(telefono_cliente, {})
+                        ofertas = estado_bot.get("ofertas")
+
+                        if ofertas is None:
+                            try:
+                                ofertas = consultar_ofertas_disponibles()["ofertas_activas"]
+                            except HTTPException as he:
+                                if he.status_code == 503:
+                                    enviar_mensaje_whatsapp(
+                                        telefono_cliente,
+                                        "⚠️ No pudimos obtener ofertas disponibles en este momento. Intenta de nuevo en unos minutos."
+                                    )
+                                    return {"status": "success"}
+                                raise
+
+                        oferta_seleccionada = None
+                        for oferta in ofertas:
+                            if int(oferta.get("id_lote")) == id_lote:
+                                oferta_seleccionada = oferta
+                                break
+
+                        if not oferta_seleccionada:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                "🤖 No encuentro ese lote en las ofertas activas. Intenta con otro ID."
+                            )
+                            return {"status": "success"}
+
+                        disponibles = int(oferta_seleccionada.get("unidades_disponibles", 0))
+                        max_permitido = min(MAX_UNIDADES_POR_PRODUCTO, disponibles)
+
+                        if max_permitido <= 0:
+                            enviar_mensaje_whatsapp(
+                                telefono_cliente,
+                                "🤖 Ese lote ya no tiene unidades disponibles. Elige otro producto."
+                            )
+                            return {"status": "success"}
+
+                        enviar_mensaje_whatsapp(
+                            telefono_cliente,
+                            f"🤖 ¿Cuantas unidades deseas? (1-{max_permitido})"
+                        )
+
+                        BOT_ESTADOS[telefono_cliente] = {
+                            "estado": ESTADO_ESPERANDO_CANTIDAD,
+                            "categoria_id": estado_bot.get("categoria_id"),
+                            "ofertas": ofertas,
+                            "id_lote": id_lote,
+                            "max_disponible": max_permitido
+                        }
                 
                 else:
                     enviar_mensaje_whatsapp(telefono_cliente, "🤖 Escribe *ofertas* para ver categorias o el *numero* del producto que deseas.")
@@ -1182,7 +1256,7 @@ def leer_historial_dda(limit: int = Query(100)):
 
 # --- ENDPOINT: GENERACIÓN DE RESERVA Y CÓDIGO QR ---
 @app.post("/api/reservar/{id_lote}")
-def confirmar_reserva(id_lote: int, telefono_usuario: str):
+def confirmar_reserva(id_lote: int, telefono_usuario: str, cantidad: int = 1):
     """
     En un entorno de producción, aquí haríamos un UPDATE a SREPI_Reservas en SQL.
     Por ahora, generamos el Token JWT garantizando la validez offline.
@@ -1195,7 +1269,7 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
         
 # Validamos que el lote exista y tenga stock
         cursor.execute("""
-            SELECT P.Nombre, P.Precio_Base, DATEDIFF(day, GETUTCDATE(), L.Fecha_Vencimiento)
+            SELECT P.Nombre, P.Precio_Base, DATEDIFF(day, GETUTCDATE(), L.Fecha_Vencimiento), L.Cantidad_Disponible
             FROM Inventario_Lotes L
             INNER JOIN Productos P ON L.SKU = P.SKU
             WHERE L.ID_Lote = %s AND L.Cantidad_Disponible > 0
@@ -1210,9 +1284,18 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
         nombre_prod = producto_db[0]
         precio_base = float(producto_db[1])
         dias = producto_db[2]
+        disponibles = int(producto_db[3])
+
+        if cantidad < 1 or cantidad > MAX_UNIDADES_POR_PRODUCTO:
+            return {"error": f"Cantidad no valida. Maximo {MAX_UNIDADES_POR_PRODUCTO} unidades."}
+
+        if cantidad > disponibles:
+            return {"error": "No hay suficientes unidades disponibles para esa cantidad."}
         
         # Calculamos el precio final para meterlo en el QR (Asumimos multiplicador 1.0 por rapidez)
-        precio_pagado, xp_ganados = calcular_dda_y_gamificacion(precio_base, dias, 1.0)
+        precio_unitario, xp_unitaria = calcular_dda_y_gamificacion(precio_base, dias, 1.0)
+        precio_pagado = int(precio_unitario * cantidad)
+        xp_ganados = int(xp_unitaria * cantidad)
 
 # Generamos el payload para el Kiosco Edge
         id_transaccion = str(uuid.uuid4())
@@ -1229,6 +1312,7 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
             "id_lote": id_lote,
             "usuario": telefono_usuario,
             "producto": nombre_prod,
+            "cantidad": cantidad,
             "pagado": precio_pagado,
             "xp": xp_ganados,
             "exp": expiracion
@@ -1241,6 +1325,7 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
         mensaje_pie_foto = (
             f"🎉 *¡Reserva Exitosa!*\n\n"
             f"📦 {nombre_prod}\n"
+            f"🔢 Cantidad: {cantidad}\n"
             f"💵 Pagas: ${precio_pagado:,.0f}\n"
             f"⭐ Ganas: {xp_ganados} XP\n\n"
             f"Acércate al Punto Express SREPI y muestra este Código QR a la cámara para retirar tu producto. "
@@ -1263,6 +1348,15 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str):
                 conn.close()
         except Exception as e:
             print(f"⚠️ No se pudo registrar la reserva en el log: {e}")
+
+        return {
+            "mensaje": "Reserva confirmada",
+            "instrucciones": "Presenta el QR en el Punto Express SREPI para retirar tus productos.",
+            "codigo_qr_jwt": token_reserva,
+            "cantidad": cantidad,
+            "total": precio_pagado,
+            "xp": xp_ganados
+        }
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error en la reserva: {str(e)}")
@@ -1274,6 +1368,7 @@ class DatosRetiro(BaseModel):
     id_lote: int
     usuario: str
     xp_ganada: int
+    cantidad: int = 1
 
 # --- ENDPOINT: CONFIRMACIÓN DESDE EL KIOSCO EDGE ---
 @app.post("/api/kiosco/confirmar-retiro")
@@ -1307,12 +1402,17 @@ def procesar_retiro(datos: DatosRetiro):
             (datos.id_transaccion, datos.usuario)
         )
 
-        # 4. Descontar 1 unidad del lote
+        cantidad = max(int(datos.cantidad), 1)
+        # 4. Descontar las unidades del lote
         cursor.execute("""
             UPDATE Inventario_Lotes
-            SET Cantidad_Disponible = Cantidad_Disponible - 1
-            WHERE ID_Lote = %s AND Cantidad_Disponible > 0
-        """, datos.id_lote)
+            SET Cantidad_Disponible = Cantidad_Disponible - %s
+            WHERE ID_Lote = %s AND Cantidad_Disponible >= %s
+        """, (cantidad, datos.id_lote, cantidad))
+
+        if cursor.rowcount == 0:
+            conn.close()
+            raise HTTPException(status_code=400, detail="No hay stock suficiente para completar el retiro.")
 
         conn.commit()
 
@@ -1337,6 +1437,7 @@ def procesar_retiro(datos: DatosRetiro):
             mensaje_confirmacion = (
                 f"✅ *¡Retiro Exitoso en SREPI!*\n\n"
                 f"📦 Producto: *{nombre_producto}*\n"
+                f"🔢 Cantidad retirada: *{cantidad}*\n"
                 f"⭐ XP ganada en este rescate: *{datos.xp_ganada} XP*\n"
                 f"🏆 Tu XP total acumulada: *{xp_acumulada} XP*\n\n"
                 f"¡Gracias por rescatar este producto y ayudar a reducir el desperdicio! 🌱"
