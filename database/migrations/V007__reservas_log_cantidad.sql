@@ -1,0 +1,17 @@
+BEGIN TRY
+    BEGIN TRANSACTION;
+
+    IF COL_LENGTH('dbo.SREPI_Reservas_Log', 'Cantidad') IS NULL
+    BEGIN
+        ALTER TABLE dbo.SREPI_Reservas_Log
+        ADD Cantidad INT NOT NULL CONSTRAINT DF_SREPI_Reservas_Log_Cantidad DEFAULT (1);
+    END;
+
+    COMMIT TRANSACTION;
+END TRY
+BEGIN CATCH
+    IF @@TRANCOUNT > 0
+        ROLLBACK TRANSACTION;
+
+    THROW;
+END CATCH;

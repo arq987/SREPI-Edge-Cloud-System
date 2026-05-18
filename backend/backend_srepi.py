@@ -511,9 +511,6 @@ async def recibir_mensaje_whatsapp(request: Request):
                         if "error" in resultado:
                             enviar_mensaje_whatsapp(telefono_cliente, f"🤖 *Error:* {resultado['error']}")
                         else:
-                            respuesta_qr = f"✅ *{resultado['mensaje']}*\n{resultado['instrucciones']}\n\n"
-                            respuesta_qr += f"Tu Código de Retiro es:\n```{resultado['codigo_qr_jwt']}```"
-                            enviar_mensaje_whatsapp(telefono_cliente, respuesta_qr)
                             if telefono_cliente in BOT_ESTADOS:
                                 del BOT_ESTADOS[telefono_cliente]
                     else:
@@ -760,7 +757,8 @@ def obtener_dashboard_operacion():
                 p.Precio_Base,
                 rl.Precio_Pagado,
                 rl.XP_Otorgada,
-                rl.Fecha_Reserva
+                rl.Fecha_Reserva,
+                rl.Cantidad
             FROM Registro_Retiros rr
             INNER JOIN SREPI_Reservas_Log rl ON rl.ID_Transaccion = rr.ID_Transaccion
             INNER JOIN Inventario_Lotes il ON il.ID_Lote = rl.ID_Lote
@@ -785,11 +783,12 @@ def obtener_dashboard_operacion():
             precio_base = float(t[3])
             precio_pagado = float(t[4])
             fecha_str = str(t[6])[:10] if t[6] else "-"
+            cantidad = int(t[7]) if t[7] is not None else 1
             transacciones.append({
                 "id": str(t[0])[:8] + "...",
                 "usuario": str(t[1]) if t[1] else "-",
                 "producto": str(t[2]),
-                "ahorro": round(max(0.0, precio_base - precio_pagado), 2),
+                "ahorro": round(max(0.0, (precio_base * cantidad) - precio_pagado), 2),
                 "recaudo": round(precio_pagado, 2),
                 "xp": int(t[5]),
                 "fecha": fecha_str,
@@ -1341,18 +1340,16 @@ def confirmar_reserva(id_lote: int, telefono_usuario: str, cantidad: int = 1):
                 cursor = conn.cursor()
                 cursor.execute("""
                     IF NOT EXISTS (SELECT 1 FROM SREPI_Reservas_Log WHERE ID_Transaccion = %s)
-                        INSERT INTO SREPI_Reservas_Log (ID_Transaccion, ID_Lote, Precio_Pagado, XP_Otorgada)
-                        VALUES (%s, %s, %s, %s)
-                """, (id_transaccion, id_transaccion, id_lote, precio_pagado, xp_ganados))
+                        INSERT INTO SREPI_Reservas_Log (ID_Transaccion, ID_Lote, Precio_Pagado, XP_Otorgada, Cantidad)
+                        VALUES (%s, %s, %s, %s, %s)
+                """, (id_transaccion, id_transaccion, id_lote, precio_pagado, xp_ganados, cantidad))
                 conn.commit()
                 conn.close()
         except Exception as e:
             print(f"⚠️ No se pudo registrar la reserva en el log: {e}")
 
         return {
-            "mensaje": "Reserva confirmada",
-            "instrucciones": "Presenta el QR en el Punto Express SREPI para retirar tus productos.",
-            "codigo_qr_jwt": token_reserva,
+            "status": "success",
             "cantidad": cantidad,
             "total": precio_pagado,
             "xp": xp_ganados
@@ -1368,7 +1365,8 @@ class DatosRetiro(BaseModel):
     id_lote: int
     usuario: str
     xp_ganada: int
-    cantidad: int = 1
+    cantidad: Optional[int] = None
+    total_pagado: Optional[float] = None
 
 # --- ENDPOINT: CONFIRMACIÓN DESDE EL KIOSCO EDGE ---
 @app.post("/api/kiosco/confirmar-retiro")
@@ -1402,7 +1400,7 @@ def procesar_retiro(datos: DatosRetiro):
             (datos.id_transaccion, datos.usuario)
         )
 
-        cantidad = max(int(datos.cantidad), 1)
+        cantidad = max(int(datos.cantidad or 1), 1)
         # 4. Descontar las unidades del lote
         cursor.execute("""
             UPDATE Inventario_Lotes
@@ -1416,7 +1414,23 @@ def procesar_retiro(datos: DatosRetiro):
 
         conn.commit()
 
-        # 5. Calcular XP total acumulada del usuario (incluyendo esta transacción)
+        # 5. Obtener total pagado (desde el payload o el log de reservas)
+        total_pagado = None
+        if datos.total_pagado is not None:
+            total_pagado = float(datos.total_pagado)
+        else:
+            try:
+                cursor.execute(
+                    "SELECT Precio_Pagado FROM SREPI_Reservas_Log WHERE ID_Transaccion = %s",
+                    datos.id_transaccion
+                )
+                fila_total = cursor.fetchone()
+                if fila_total:
+                    total_pagado = float(fila_total[0])
+            except Exception:
+                pass
+
+        # 6. Calcular XP total acumulada del usuario (incluyendo esta transacción)
         xp_acumulada = datos.xp_ganada
         try:
             cursor.execute("""
@@ -1432,12 +1446,14 @@ def procesar_retiro(datos: DatosRetiro):
 
         conn.close()
 
-        # 6. Enviar confirmación por WhatsApp
+        # 7. Enviar confirmación por WhatsApp
         try:
+            total_linea = f"💵 Total pagado: *${total_pagado:,.0f}*\n" if total_pagado is not None else ""
             mensaje_confirmacion = (
                 f"✅ *¡Retiro Exitoso en SREPI!*\n\n"
                 f"📦 Producto: *{nombre_producto}*\n"
                 f"🔢 Cantidad retirada: *{cantidad}*\n"
+                f"{total_linea}"
                 f"⭐ XP ganada en este rescate: *{datos.xp_ganada} XP*\n"
                 f"🏆 Tu XP total acumulada: *{xp_acumulada} XP*\n\n"
                 f"¡Gracias por rescatar este producto y ayudar a reducir el desperdicio! 🌱"

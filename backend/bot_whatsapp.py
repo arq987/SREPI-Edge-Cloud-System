@@ -133,13 +133,7 @@ def simular_chat_whatsapp():
         if "error" in datos_reserva:
             print(f"🤖 SREPI Bot: {datos_reserva['error']}")
         else:
-            print("\n✅ 🤖 SREPI Bot:", datos_reserva["mensaje"])
-            print("🤖 SREPI Bot:", datos_reserva["instrucciones"])
-            print("\n[ CÓDIGO QR GENERADO - Listo para escanear en tienda ]")
-            print("==================================================")
-            print(datos_reserva["codigo_qr_jwt"])
-            print("==================================================")
-            print("📍 Dirígete al carril express del supermercado.")
+            print("\n✅ 🤖 SREPI Bot: Reserva creada. Revisa el QR enviado al WhatsApp.")
     else:
         print("🤖 SREPI Bot: Hubo un problema comunicándonos con el sistema central.")
 

@@ -47,15 +47,19 @@ function onScanSuccess(decodedText, decodedResult) {
             <h3 style="color: #856404; margin-top:0; text-align:center;">⏳ Verificando Servidor...</h3>
             <p style="text-align:center; color: #666;">Validando conexion central.</p>`;
 
+        const payloadRetiro = {
+            id_transaccion: datosReserva.id_transaccion,
+            id_lote: datosReserva.id_lote,
+            usuario: datosReserva.usuario,
+            xp_ganada: datosReserva.xp,
+            cantidad: datosReserva.cantidad,
+            total_pagado: datosReserva.pagado
+        };
+
         fetch("https://srepi-backend.onrender.com/api/kiosco/confirmar-retiro", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-                id_transaccion: datosReserva.id_transaccion,
-                id_lote: datosReserva.id_lote,
-                usuario: datosReserva.usuario,
-                xp_ganada: datosReserva.xp
-            })
+            body: JSON.stringify(payloadRetiro)
         })
         .then(async response => {
             if (!response.ok) {
@@ -72,13 +76,15 @@ function onScanSuccess(decodedText, decodedResult) {
                 <div class="datos">
                     <p><strong>👤 Cliente:</strong> ${datosReserva.usuario}</p>
                     <p><strong>📦 Producto:</strong> ${datosReserva.producto}</p>
+                    <p><strong>🔢 Cantidad:</strong> ${datosReserva.cantidad || 1}</p>
+                    <p><strong>💵 Total:</strong> $${datosReserva.pagado || 0}</p>
                 </div>
                 <button class="btn-recargar" onclick="location.reload()">Siguiente Cliente</button>`;
         })
         .catch(error => {
             if (error.message === "Failed to fetch" || error.message.includes("Network")) {
                 actualizarUI(false);
-                localStorage.setItem("offline_" + datosReserva.id_transaccion, JSON.stringify(datosReserva));
+                localStorage.setItem("offline_" + datosReserva.id_transaccion, JSON.stringify(payloadRetiro));
                 localStorage.setItem(datosReserva.id_transaccion, "pendiente_sincronizacion");
 
                 resultadoDiv.className = 'success';
@@ -89,6 +95,8 @@ function onScanSuccess(decodedText, decodedResult) {
                     <div class="datos">
                         <p><strong>👤 Cliente:</strong> ${datosReserva.usuario}</p>
                         <p><strong>📦 Producto:</strong> ${datosReserva.producto}</p>
+                        <p><strong>🔢 Cantidad:</strong> ${datosReserva.cantidad || 1}</p>
+                        <p><strong>💵 Total:</strong> $${datosReserva.pagado || 0}</p>
                     </div>
                     <p style="text-align:center; font-style:italic; color:#ff9800; font-size:13px;">⚠️ El inventario se sincronizara automaticamente al reconectar.</p>
                     <button class="btn-recargar" onclick="location.reload()">Siguiente Cliente</button>`;
